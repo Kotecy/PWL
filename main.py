@@ -1,4 +1,5 @@
 """PWL desktop host: Python backend + HTML/CSS UI through pywebview."""
+import ctypes
 import json
 import os
 import sys
@@ -8,9 +9,18 @@ from pathlib import Path
 import webview
 
 APP_TITLE = "PWL by Kotecy"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.3.1"
 WINDOW_W = 900
 WINDOW_H = 620
+CORNER_RADIUS = 20
+
+IS_WINDOWS = sys.platform.startswith("win")
+RGN_OR = 2
+
+
+class RECT(ctypes.Structure):
+    _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
+                ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
 
 
 def config_path() -> Path:
@@ -21,6 +31,35 @@ def config_path() -> Path:
 def resource_path(*parts: str) -> Path:
     base = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
     return base.joinpath(*parts)
+
+
+def round_window_corners() -> None:
+    """Round the real window, not the page.
+
+    WebView2 renders into an opaque rectangle, so a CSS border-radius only
+    reveals the page background behind the corner and reads as a second layer.
+    Clipping the OS window with a region removes those corners for real.
+    """
+    if not IS_WINDOWS:
+        return
+    try:
+        user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
+        hwnd = user32.FindWindowW(None, APP_TITLE)
+        if not hwnd:
+            return
+        rect = RECT()
+        user32.GetWindowRect(hwnd, ctypes.byref(rect))
+        w, h = rect.right - rect.left, rect.bottom - rect.top
+        if w < 10 or h < 10:
+            return
+        region = gdi32.CreateRoundRectRgn(0, 0, w + 1, h + 1,
+                                          CORNER_RADIUS * 2, CORNER_RADIUS * 2)
+        square_bottom = gdi32.CreateRectRgn(0, CORNER_RADIUS, w + 1, h + 1)
+        gdi32.CombineRgn(region, region, square_bottom, RGN_OR)
+        gdi32.DeleteObject(square_bottom)
+        user32.SetWindowRgn(hwnd, region, True)
+    except Exception:
+        pass
 
 
 class Api:
@@ -85,11 +124,18 @@ def main() -> None:
         frameless=True,
         easy_drag=False,
         resizable=True,
-        shadow=True,
         background_color="#1b1d21",
     )
     api.window = window
-    webview.start(gui="edgechromium", debug=False)
+
+    def on_start():
+        round_window_corners()
+        try:
+            window.events.resized += lambda *_args: round_window_corners()
+        except Exception:
+            pass
+
+    webview.start(on_start, gui="edgechromium", debug=False)
 
 
 if __name__ == "__main__":
