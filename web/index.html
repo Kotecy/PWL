@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'">
   <title>PWL by Kotecy</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=3">
 </head>
 <body>
   <div class="app-shell">
@@ -30,7 +30,6 @@
       <section class="welcome-card">
         <span class="product-pill">PERFECT WORLD</span>
         <h1>Добро пожаловать в PWL</h1>
-        <p class="lead">Автоматический вход в аккаунт без .bat-файлов<br>и ручного ввода паролей</p>
         <div class="divider"></div>
         <p class="prompt">Добавьте прямо сейчас свой<br>первый сервер и аккаунт</p>
         <button id="acceptButton" class="primary-button" type="button">Принять</button>
@@ -39,23 +38,145 @@
     </main>
 
     <main id="workspaceScreen" class="screen workspace-screen" hidden>
-      <section class="workspace-heading">
-        <h1>Серверы и аккаунты</h1>
-        <p>Управляйте входом в любой из своих аккаунтов</p>
-      </section>
       <div class="workspace-body">
-        <section class="empty-card">
+        <section id="emptyCard" class="empty-card">
           <span class="plus-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
           </span>
           <h2>Здесь пока пусто</h2>
           <p>Добавьте первый сервер, чтобы начать</p>
-          <button class="primary-button add-button" type="button">Добавить сервер</button>
+          <button id="addServerButton" class="primary-button add-button" type="button">Добавить сервер</button>
+        </section>
+        <section id="serverList" class="server-list" hidden>
+          <div class="server-list-toolbar">
+            <button id="addServerToolbarButton" class="ghost-button add-server-btn" type="button">+ Добавить сервер</button>
+          </div>
+          <div id="serverCards" class="server-cards"></div>
+          <nav id="serverPagination" class="server-pagination" hidden></nav>
+        </section>
+        <section id="accountsView" class="accounts-view" hidden>
+          <div class="accounts-head">
+            <button id="accountsBackButton" class="accounts-back" type="button">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 3 5.5 8l5 5"/></svg>
+              Серверы
+            </button>
+            <h2 id="accountsServerName"></h2>
+          </div>
+          <div id="accountsTableWrap" class="accounts-table-wrap">
+            <table class="accounts-table">
+              <thead>
+                <tr><th class="th-grip"></th><th class="th-class">Класс</th><th>Ник</th><th>Логин</th><th>Сервер</th><th>Комментарий</th></tr>
+              </thead>
+              <tbody id="accountsBody"></tbody>
+            </table>
+          </div>
+          <div class="accounts-actions">
+            <button id="addAccountButton" class="secondary-button" type="button">Добавить аккаунт</button>
+            <button id="enterButton" class="primary-button enter-button" type="button" disabled>Войти</button>
+          </div>
         </section>
       </div>
       <span id="workspaceVersion" class="workspace-version"></span>
     </main>
+
+    <div id="contextMenu" class="context-menu" hidden>
+      <button id="contextEditButton" type="button">Редактировать</button>
+    </div>
+
+    <div id="serverContextMenu" class="context-menu" hidden>
+      <button id="serverAddPathButton" type="button">Добавить путь Elementclient</button>
+    </div>
+
+    <div id="pathModal" class="modal-overlay" hidden>
+      <section class="modal-card">
+        <span class="form-kicker">PWL</span>
+        <h2 id="pathModalTitle">Нужен Elementclient</h2>
+        <p id="pathModalText" class="modal-text">Укажите путь к клиенту, чтобы войти на этот сервер.</p>
+        <div class="client-row modal-client-row">
+          <button id="pathBrowseButton" class="ghost-button" type="button">Добавить Elementclient</button>
+          <span id="pathStatus" class="client-status" hidden>Elementclient принят</span>
+        </div>
+        <input id="pathFile" type="file" hidden>
+        <div class="form-actions">
+          <button id="pathCancelButton" class="secondary-button" type="button">Отмена</button>
+          <button id="pathSaveButton" class="primary-button" type="button" disabled>Сохранить</button>
+        </div>
+      </section>
+    </div>
+
+    <main id="serverScreen" class="screen form-screen" hidden>
+      <div class="ambient-glow" aria-hidden="true"></div>
+      <section class="form-card">
+        <span class="form-kicker" id="serverKicker" hidden>Шаг 1 из 2</span>
+        <h1>Добавление сервера</h1>
+        <form id="serverForm" novalidate>
+          <label class="field">
+            <span class="field-label">Название сервера</span>
+            <input id="serverName" class="text-input" type="text" placeholder="">
+          </label>
+          <div class="field">
+            <div class="client-row">
+              <button id="browseButton" class="ghost-button" type="button">Добавить Elementclient</button>
+              <span id="clientStatus" class="client-status" hidden>Elementclient принят</span>
+            </div>
+            <input id="clientPathFile" type="file" hidden>
+          </div>
+          <div class="form-actions">
+            <button id="serverLaterButton" class="secondary-button" type="button">Добавить позже</button>
+            <button class="primary-button" type="submit">Принять</button>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <main id="accountScreen" class="screen form-screen" hidden>
+      <div class="ambient-glow" aria-hidden="true"></div>
+      <section class="form-card">
+        <span class="form-kicker" id="accountKicker" hidden>Шаг 2 из 2</span>
+        <h1>Добавление аккаунта</h1>
+        <form id="accountForm" novalidate>
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">Логин</span>
+              <input id="accountLogin" class="text-input" type="text" placeholder="Имя аккаунта">
+            </label>
+            <label class="field">
+              <span class="field-label">Пароль</span>
+              <input id="accountPassword" class="text-input" type="password" placeholder="••••••••">
+            </label>
+          </div>
+          <label class="field">
+            <span class="field-label">Ник персонажа</span>
+            <div class="nick-row">
+              <input id="characterNick" class="text-input" type="text" placeholder="Имя персонажа">
+              <label class="auto-check">
+                <input id="autoRole" type="checkbox">
+                <span>Автовход на персонажа</span>
+              </label>
+            </div>
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">Раса</span>
+              <select id="raceSelect" class="text-input"></select>
+            </label>
+            <label class="field">
+              <span class="field-label">Класс</span>
+              <select id="classSelect" class="text-input"></select>
+            </label>
+          </div>
+          <label id="commentField" class="field" hidden>
+            <span class="field-label">Комментарий</span>
+            <input id="accountComment" class="text-input" type="text" placeholder="Заметка об аккаунте">
+          </label>
+          <div class="form-actions">
+            <button id="accountBackButton" class="secondary-button" type="button">Назад</button>
+            <button class="primary-button" type="submit">Принять</button>
+          </div>
+        </form>
+      </section>
+    </main>
   </div>
-  <script src="app.js"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>
