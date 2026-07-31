@@ -2,12 +2,13 @@
 
 - Borderless window, rounded top corners (radius 20), square bottom
 - Always present in the Windows taskbar
-- Slim 30px title bar with drag, theme switch, minimize and close
-- Light / dark theme with an animated sun-moon toggle, remembered on disk
+- Slim 26px title bar with drag, theme switch, minimize and close
+- GitHub-like light / dark palette with a sun-moon toggle, remembered on disk
 - Welcome card (radius 30) with a working "Accept" button
 """
 
 import json
+import math
 import os
 import sys
 import tkinter as tk
@@ -22,58 +23,59 @@ APP_VERSION = "0.1.0"
 
 WINDOW_W = 900
 WINDOW_H = 620
-TITLEBAR_H = 30
+TITLEBAR_H = 26
 CORNER_RADIUS = 20
 CARD_RADIUS = 30
 
+# GitHub-inspired palettes: never pure black, always a readable gray base.
 THEMES = {
     "dark": {
-        "bg": "#0A0A0D",
-        "halo": "#101018",
-        "shadow_far": "#111117",
-        "shadow_near": "#17171F",
-        "bar": "#101014",
-        "line": "#20202A",
-        "text": "#F3F3F6",
-        "muted": "#8A8A96",
-        "faint": "#4E4E5A",
-        "hover": "#20202A",
-        "accent": "#4C8DFF",
-        "accent_hover": "#3A79E8",
-        "danger": "#FF5A5A",
-        "danger_soft": "#301316",
-        "card": "#15151B",
-        "card_line": "#25252F",
-        "card_text": "#F3F3F6",
-        "card_muted": "#8A8A96",
-        "pill": "#1D1D26",
-        "btn": "#4C8DFF",
-        "btn_hover": "#3A79E8",
+        "bg": "#0D1117",
+        "halo": "#121820",
+        "shadow_far": "#12181F",
+        "shadow_near": "#181F28",
+        "bar": "#161B22",
+        "line": "#30363D",
+        "text": "#E6EDF3",
+        "muted": "#8B949E",
+        "faint": "#6E7681",
+        "hover": "#21262D",
+        "accent": "#2F81F7",
+        "accent_hover": "#1F6FEB",
+        "danger": "#F85149",
+        "danger_soft": "#3D1D1D",
+        "card": "#161B22",
+        "card_line": "#30363D",
+        "card_text": "#E6EDF3",
+        "card_muted": "#8B949E",
+        "pill": "#1C2C43",
+        "btn": "#2F81F7",
+        "btn_hover": "#1F6FEB",
         "btn_text": "#FFFFFF",
-        "panel": "#101015",
+        "panel": "#161B22",
     },
     "light": {
-        "bg": "#F1F2F5",
-        "halo": "#E9EAEF",
-        "shadow_far": "#E2E3E9",
-        "shadow_near": "#D8D9E1",
+        "bg": "#F6F8FA",
+        "halo": "#EDF1F5",
+        "shadow_far": "#E7EBF0",
+        "shadow_near": "#DDE3EA",
         "bar": "#FFFFFF",
-        "line": "#E3E4EA",
-        "text": "#14141A",
-        "muted": "#6B6B78",
-        "faint": "#9A9AA6",
-        "hover": "#EDEEF2",
-        "accent": "#2F6FE4",
-        "accent_hover": "#255CC4",
-        "danger": "#E03B3B",
-        "danger_soft": "#FBE3E3",
+        "line": "#D0D7DE",
+        "text": "#1F2328",
+        "muted": "#656D76",
+        "faint": "#8C959F",
+        "hover": "#EAEEF2",
+        "accent": "#0969DA",
+        "accent_hover": "#0550AE",
+        "danger": "#CF222E",
+        "danger_soft": "#FFEBE9",
         "card": "#FFFFFF",
-        "card_line": "#E6E7ED",
-        "card_text": "#14141A",
-        "card_muted": "#6B6B78",
-        "pill": "#EEF2FB",
-        "btn": "#14141A",
-        "btn_hover": "#2B2B36",
+        "card_line": "#D0D7DE",
+        "card_text": "#1F2328",
+        "card_muted": "#656D76",
+        "pill": "#DDF4FF",
+        "btn": "#0969DA",
+        "btn_hover": "#0550AE",
         "btn_text": "#FFFFFF",
         "panel": "#FFFFFF",
     },
@@ -122,8 +124,7 @@ def rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
 
 def soft_elevation(canvas, x1, y1, x2, y2, r, theme, spread=3):
     """Fake soft shadow: stacked rounded rects behind the card."""
-    layers = [(spread * 6, theme["shadow_far"]), (spread * 3, theme["shadow_near"])]
-    for pad, color in layers:
+    for pad, color in ((spread * 6, theme["shadow_far"]), (spread * 3, theme["shadow_near"])):
         rounded_rect(canvas, x1 - pad, y1 - pad + pad / 2, x2 + pad, y2 + pad + pad / 2,
                      r + pad / 2, fill=color, outline="")
 
@@ -165,7 +166,6 @@ class CanvasButton:
 def draw_sun(canvas, cx, cy, color, r=4):
     canvas.create_oval(cx - r, cy - r, cx + r, cy + r, outline=color, width=1.4)
     for i in range(8):
-        import math
         a = math.pi * i / 4
         x0, y0 = cx + math.cos(a) * (r + 2), cy + math.sin(a) * (r + 2)
         x1, y1 = cx + math.cos(a) * (r + 4), cy + math.sin(a) * (r + 4)
@@ -174,8 +174,7 @@ def draw_sun(canvas, cx, cy, color, r=4):
 
 def draw_moon(canvas, cx, cy, color, bg, r=6):
     canvas.create_oval(cx - r, cy - r, cx + r, cy + r, fill=color, outline=color)
-    canvas.create_oval(cx - r + 4, cy - r - 3, cx + r + 4, cy + r - 3,
-                       fill=bg, outline=bg)
+    canvas.create_oval(cx - r + 4, cy - r - 3, cx + r + 4, cy + r - 3, fill=bg, outline=bg)
 
 
 # ------------------------------------------------------------- win32 chrome
@@ -310,10 +309,10 @@ class PwlApp:
         bar.pack(fill="x", side="top")
         bar.pack_propagate(False)
 
-        logo = tk.Canvas(bar, bg=theme["bar"], width=16, height=16, highlightthickness=0)
-        logo.pack(side="left", padx=(10, 8))
-        rounded_rect(logo, 0, 0, 16, 16, 5, fill=theme["accent"], outline="")
-        logo.create_text(8, 8, text="P", fill="#FFFFFF", font=("Segoe UI Semibold", 8))
+        logo = tk.Canvas(bar, bg=theme["bar"], width=14, height=14, highlightthickness=0)
+        logo.pack(side="left", padx=(9, 7))
+        rounded_rect(logo, 0, 0, 14, 14, 4, fill=theme["accent"], outline="")
+        logo.create_text(7, 7, text="P", fill="#FFFFFF", font=("Segoe UI Semibold", 7))
 
         title = tk.Label(bar, text=APP_TITLE, bg=theme["bar"], fg=theme["text"], font=F_TITLE)
         title.pack(side="left")
@@ -331,7 +330,7 @@ class PwlApp:
     def _control(self, bar, glyph, command, fg, hover_bg):
         theme = self.theme
         btn = tk.Label(bar, text=glyph, bg=theme["bar"], fg=fg,
-                       font=("Segoe UI", 10), width=4, cursor="hand2")
+                       font=("Segoe UI", 9), width=4, cursor="hand2")
         btn.pack(side="right", fill="y")
         btn.bind("<Button-1>", lambda _e: command())
         btn.bind("<Enter>", lambda _e: btn.configure(bg=hover_bg, fg=theme["text"]))
@@ -341,16 +340,14 @@ class PwlApp:
     def _theme_switch(self, bar):
         """Sun in dark mode, moon in light mode - the icon shows what you switch to."""
         theme = self.theme
-        cell = tk.Canvas(bar, bg=theme["bar"], width=34, height=TITLEBAR_H,
+        cell = tk.Canvas(bar, bg=theme["bar"], width=32, height=TITLEBAR_H,
                          highlightthickness=0, cursor="hand2")
         cell.pack(side="right", fill="y")
-        cx, cy = 17, TITLEBAR_H / 2
+        cx, cy = 16, TITLEBAR_H / 2
 
         def render(bg, fg):
             cell.delete("all")
             cell.configure(bg=bg)
-            rounded_rect(cell, 3, 4, 31, TITLEBAR_H - 4, 8,
-                         fill=bg, outline="")
             if self.theme_name == "dark":
                 draw_sun(cell, cx, cy, fg)
             else:
@@ -394,37 +391,38 @@ class PwlApp:
             x2, y2 = x1 + cw, y1 + ch
             cx = w / 2
 
-            # ambient halo behind the card
             rounded_rect(canvas, x1 - 70, y1 - 50, x2 + 70, y2 + 50, 90,
                          fill=theme["halo"], outline="")
             soft_elevation(canvas, x1, y1, x2, y2, CARD_RADIUS, theme)
             rounded_rect(canvas, x1, y1, x2, y2, CARD_RADIUS,
                          fill=theme["card"], outline=theme["card_line"])
 
-            # pill badge
             pw, ph = 152, 24
             rounded_rect(canvas, cx - pw / 2, y1 + 30, cx + pw / 2, y1 + 30 + ph, 12,
                          fill=theme["pill"], outline="")
             canvas.create_text(cx, y1 + 42, text="PERFECT WORLD",
                                fill=theme["accent"], font=F_PILL)
 
-            canvas.create_text(cx, y1 + 88, text="\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c \u0432 PWL",
+            canvas.create_text(cx, y1 + 86, text="\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c \u0432 PWL",
                                fill=theme["card_text"], font=F_H1)
             canvas.create_text(
-                cx, y1 + 128,
+                cx, y1 + 124,
                 text="\u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438\u0439 \u0432\u0445\u043e\u0434 \u0432 \u0430\u043a\u043a\u0430\u0443\u043d\u0442 \u0431\u0435\u0437 .bat-\u0444\u0430\u0439\u043b\u043e\u0432\n\u0438 \u0440\u0443\u0447\u043d\u043e\u0433\u043e \u0432\u0432\u043e\u0434\u0430 \u043f\u0430\u0440\u043e\u043b\u0435\u0439",
-                fill=theme["card_muted"], font=F_BODY, justify="center", spacing1=5,
+                fill=theme["card_muted"], font=F_BODY, justify="center",
             )
-            canvas.create_line(x1 + 46, y1 + 176, x2 - 46, y1 + 176, fill=theme["card_line"])
+            canvas.create_line(x1 + 46, y1 + 168, x2 - 46, y1 + 168, fill=theme["card_line"])
             canvas.create_text(
-                cx, y1 + 212,
+                cx, y1 + 206,
                 text="\u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u043f\u0440\u044f\u043c\u043e \u0441\u0435\u0439\u0447\u0430\u0441 \u0441\u0432\u043e\u0439\n\u043f\u0435\u0440\u0432\u044b\u0439 \u0441\u0435\u0440\u0432\u0435\u0440 \u0438 \u0430\u043a\u043a\u0430\u0443\u043d\u0442",
-                fill=theme["card_text"], font=F_H2, justify="center", spacing1=5,
+                fill=theme["card_text"], font=F_H2, justify="center",
             )
             CanvasButton(canvas, cx, y1 + 276, 232, 44, "\u041f\u0440\u0438\u043d\u044f\u0442\u044c",
                          self.on_accept, theme, radius=14)
-            canvas.create_text(cx, y2 + 34, text=f"v{APP_VERSION}  \u00b7  Enter \u2014 \u043f\u0440\u0438\u043d\u044f\u0442\u044c  \u00b7  Ctrl+T \u2014 \u0442\u0435\u043c\u0430",
-                               fill=theme["faint"], font=F_SMALL)
+            canvas.create_text(
+                cx, y2 + 34,
+                text=f"v{APP_VERSION}  \u00b7  Enter \u2014 \u043f\u0440\u0438\u043d\u044f\u0442\u044c  \u00b7  Ctrl+T \u2014 \u0442\u0435\u043c\u0430",
+                fill=theme["faint"], font=F_SMALL,
+            )
 
         canvas.bind("<Configure>", draw)
         self.root.after(40, draw)
@@ -446,7 +444,8 @@ class PwlApp:
 
             canvas.create_text(40, 42, text="\u0421\u0435\u0440\u0432\u0435\u0440\u044b \u0438 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u044b",
                                anchor="w", fill=theme["text"], font=F_H1)
-            canvas.create_text(40, 68, text="\u0423\u043f\u0440\u0430\u0432\u043b\u044f\u0439\u0442\u0435 \u0432\u0445\u043e\u0434\u043e\u043c \u0432 \u043b\u044e\u0431\u043e\u0439 \u0438\u0437 \u0441\u0432\u043e\u0438\u0445 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432",
+            canvas.create_text(40, 68,
+                               text="\u0423\u043f\u0440\u0430\u0432\u043b\u044f\u0439\u0442\u0435 \u0432\u0445\u043e\u0434\u043e\u043c \u0432 \u043b\u044e\u0431\u043e\u0439 \u0438\u0437 \u0441\u0432\u043e\u0438\u0445 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432",
                                anchor="w", fill=theme["muted"], font=F_BODY)
 
             bw, bh = 520, 250
@@ -456,7 +455,6 @@ class PwlApp:
             rounded_rect(canvas, x1, y1, x2, y2, 24,
                          fill=theme["panel"], outline=theme["card_line"])
 
-            # empty-state glyph
             gx, gy = cx, y1 + 62
             rounded_rect(canvas, gx - 26, gy - 20, gx + 26, gy + 20, 12,
                          fill=theme["pill"], outline="")
@@ -467,7 +465,8 @@ class PwlApp:
 
             canvas.create_text(cx, y1 + 118, text="\u0417\u0434\u0435\u0441\u044c \u043f\u043e\u043a\u0430 \u043f\u0443\u0441\u0442\u043e",
                                fill=theme["text"], font=F_H2)
-            canvas.create_text(cx, y1 + 146, text="\u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u043f\u0435\u0440\u0432\u044b\u0439 \u0441\u0435\u0440\u0432\u0435\u0440, \u0447\u0442\u043e\u0431\u044b \u043d\u0430\u0447\u0430\u0442\u044c",
+            canvas.create_text(cx, y1 + 146,
+                               text="\u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u043f\u0435\u0440\u0432\u044b\u0439 \u0441\u0435\u0440\u0432\u0435\u0440, \u0447\u0442\u043e\u0431\u044b \u043d\u0430\u0447\u0430\u0442\u044c",
                                fill=theme["muted"], font=F_BODY)
             CanvasButton(canvas, cx, y1 + 198, 232, 44,
                          "+   \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0441\u0435\u0440\u0432\u0435\u0440", lambda: None, theme,
