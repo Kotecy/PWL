@@ -9,7 +9,7 @@ from pathlib import Path
 import webview
 
 APP_TITLE = "PWL by Kotecy"
-APP_VERSION = "0.3.1"
+APP_VERSION = "0.3.2"
 WINDOW_W = 900
 WINDOW_H = 620
 CORNER_RADIUS = 20
@@ -34,11 +34,10 @@ def resource_path(*parts: str) -> Path:
 
 
 def round_window_corners() -> None:
-    """Round the real window, not the page.
+    """Round the real window instead of the page.
 
-    WebView2 renders into an opaque rectangle, so a CSS border-radius only
-    reveals the page background behind the corner and reads as a second layer.
-    Clipping the OS window with a region removes those corners for real.
+    WebView2 renders into an opaque rectangle, so a CSS border-radius would only
+    reveal the page background behind the corners and read as a stacked layer.
     """
     if not IS_WINDOWS:
         return

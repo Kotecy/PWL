@@ -1,23 +1,31 @@
-/* The OS window is clipped by a region in main.py, so the page itself must stay
-   square and fully opaque. Any CSS rounding here would expose the page
-   background behind the corners and look like a second stacked layer. */
+/* Performance model
+   ------------------
+   The OS window is clipped by a region in main.py, so the page stays square.
+   Expensive effects (glow, layered shadows) live on their own compositor
+   layers: they are rasterized once and only re-composited afterwards, so they
+   cost nothing while the window moves. During a drag we additionally switch to
+   .is-dragging, which swaps blurred shadows for flat fills for a few frames. */
 :root {
   color-scheme: dark;
-  --bg:#1b1d21; --surface:#24272d; --line:#3a3f48;
+  --bg:#1b1d21; --surface:#24272d; --surface-top:#282c33; --line:#3a3f48;
   --text:#f0f1f2; --muted:#a7abb3; --faint:#737984; --hover:#30343c;
-  --accent:#4493f8; --accent-hover:#2f81f7; --pill:#26384f;
-  --danger:#ff6b66; --danger-bg:#49292c;
-  --shadow:0 10px 26px rgba(0,0,0,.26);
-  --btn-shadow:0 4px 12px rgba(47,129,247,.20);
+  --accent:#4493f8; --accent-hover:#2f81f7; --accent-soft:rgba(68,147,248,.22);
+  --pill:#26384f; --danger:#ff6b66; --danger-bg:#49292c;
+  --glow-a:rgba(68,147,248,.16); --glow-b:rgba(126,111,232,.12);
+  --card-shadow:0 28px 60px -22px rgba(0,0,0,.72),0 10px 24px -12px rgba(0,0,0,.55),0 1px 0 rgba(255,255,255,.045) inset;
+  --btn-shadow:0 10px 22px -10px rgba(68,147,248,.85);
+  --btn-shadow-hover:0 14px 28px -10px rgba(68,147,248,.95);
 }
 html[data-theme="light"] {
   color-scheme:light;
-  --bg:#f6f8fa; --surface:#fff; --line:#d0d7de;
+  --bg:#f6f8fa; --surface:#fff; --surface-top:#fff; --line:#d8dee4;
   --text:#1f2328; --muted:#656d76; --faint:#9aa1aa; --hover:#eaedf0;
-  --accent:#0969da; --accent-hover:#0550ae; --pill:#ddf4ff;
-  --danger:#cf222e; --danger-bg:#ffebe9;
-  --shadow:0 10px 26px rgba(31,35,40,.10);
-  --btn-shadow:0 4px 12px rgba(9,105,218,.18);
+  --accent:#0969da; --accent-hover:#0550ae; --accent-soft:rgba(9,105,218,.16);
+  --pill:#ddf4ff; --danger:#cf222e; --danger-bg:#ffebe9;
+  --glow-a:rgba(9,105,218,.13); --glow-b:rgba(126,111,232,.10);
+  --card-shadow:0 26px 54px -24px rgba(31,35,40,.32),0 8px 20px -12px rgba(31,35,40,.18),0 1px 0 rgba(255,255,255,.9) inset;
+  --btn-shadow:0 10px 22px -10px rgba(9,105,218,.6);
+  --btn-shadow-hover:0 14px 28px -10px rgba(9,105,218,.72);
 }
 * { box-sizing:border-box; }
 html,body { width:100%; height:100%; margin:0; overflow:hidden; }
@@ -27,52 +35,59 @@ body {
 }
 button { font:inherit; }
 
-.app-shell {
-  width:100%; height:100%; overflow:hidden;
-  display:flex; flex-direction:column;
-  background:var(--bg);
-}
+.app-shell { width:100%; height:100%; display:flex; flex-direction:column; overflow:hidden; background:var(--bg); }
 
-.titlebar {
-  flex:0 0 23px; display:flex; align-items:stretch;
-  background:var(--surface); border-bottom:1px solid var(--line);
-}
+.titlebar { flex:0 0 23px; display:flex; align-items:stretch; background:var(--surface); border-bottom:1px solid var(--line); }
 .drag-zone { flex:1; min-width:0; display:flex; align-items:center; gap:7px; padding-left:8px; cursor:default; }
-.brand-icon { width:12px; height:12px; display:grid; place-items:center; border-radius:4px; background:var(--accent); color:#fff; font-size:7px; font-weight:700; }
+.brand-icon { width:12px; height:12px; display:grid; place-items:center; border-radius:4px; background:linear-gradient(160deg,var(--accent),var(--accent-hover)); color:#fff; font-size:7px; font-weight:700; }
 .brand-name { font-size:11px; line-height:1; font-weight:600; letter-spacing:-.1px; white-space:nowrap; }
 .window-actions { display:flex; }
 .title-button { width:32px; display:grid; place-items:center; padding:0; border:0; background:transparent; color:var(--muted); cursor:pointer; transition:background-color .12s,color .12s; }
 .title-button:hover { color:var(--text); background:var(--hover); }
 .title-button svg { width:13px; height:13px; fill:none; stroke:currentColor; stroke-width:1.65; stroke-linecap:round; }
 .close-button { color:var(--danger); }
-.close-button:hover { background:var(--danger-bg); color:var(--danger); }
+.close-button:hover { background:var(--danger-bg); }
 .theme-button svg { width:14px; height:14px; stroke-width:1.55; }
+.theme-button { transition:background-color .12s,color .12s,transform .25s; }
+.theme-button:hover { transform:rotate(18deg); }
 
-.screen { flex:1; min-height:0; position:relative; overflow:hidden; background:var(--bg); }
+.screen { flex:1; min-height:0; position:relative; overflow:hidden; }
 .screen[hidden] { display:none; }
 
-/* Welcome: plain flex flow. The version is part of the flow, so it can never
-   drift outside the viewport the way an absolutely positioned label did. */
+/* Own compositor layer: painted once, then only composited. */
+.ambient-glow {
+  position:absolute; left:50%; top:50%; width:760px; height:520px;
+  margin:-260px 0 0 -380px; pointer-events:none;
+  background:
+    radial-gradient(46% 44% at 32% 30%,var(--glow-a),transparent 70%),
+    radial-gradient(44% 42% at 70% 68%,var(--glow-b),transparent 72%);
+  filter:blur(26px);
+  will-change:transform; transform:translateZ(0); contain:strict;
+}
+
 .welcome-screen { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; }
 .welcome-card {
-  width:460px; display:flex; flex-direction:column; align-items:center;
+  position:relative; width:460px; display:flex; flex-direction:column; align-items:center;
   padding:30px 46px 31px; border:1px solid var(--line); border-radius:30px;
-  background:var(--surface); box-shadow:var(--shadow);
+  background:linear-gradient(180deg,var(--surface-top),var(--surface));
+  box-shadow:var(--card-shadow);
+  will-change:transform; transform:translateZ(0);
 }
-.product-pill { min-width:152px; height:24px; display:grid; place-items:center; border-radius:999px; background:var(--pill); color:var(--accent); font-size:10px; font-weight:650; letter-spacing:.25px; }
+.product-pill { min-width:152px; height:24px; display:grid; place-items:center; border-radius:999px; background:var(--pill); color:var(--accent); font-size:10px; font-weight:650; letter-spacing:.25px; box-shadow:0 0 0 1px var(--accent-soft) inset; }
 h1,h2,p { margin:0; }
 .welcome-card h1 { margin-top:24px; font-size:23px; line-height:1.2; letter-spacing:-.45px; }
 .lead { margin-top:8px; color:var(--muted); font-size:13px; line-height:1.42; text-align:center; }
-.divider { width:100%; height:1px; margin-top:25px; background:var(--line); }
+.divider { width:100%; height:1px; margin-top:25px; background:linear-gradient(90deg,transparent,var(--line) 18%,var(--line) 82%,transparent); }
 .prompt { margin-top:19px; font-size:16px; line-height:1.35; font-weight:650; text-align:center; }
 .primary-button {
-  min-width:232px; height:44px; margin-top:26px; padding:0 28px;
-  border:0; border-radius:13px; background:var(--accent); color:#fff;
-  font-size:15px; font-weight:650; cursor:pointer; box-shadow:var(--btn-shadow);
-  transition:background-color .12s;
+  min-width:232px; height:44px; margin-top:26px; padding:0 28px; border:0; border-radius:13px;
+  background:linear-gradient(180deg,var(--accent),var(--accent-hover));
+  color:#fff; font-size:15px; font-weight:650; cursor:pointer; box-shadow:var(--btn-shadow);
+  transition:transform .14s cubic-bezier(.2,.8,.3,1),box-shadow .14s,filter .12s;
+  will-change:transform;
 }
-.primary-button:hover { background:var(--accent-hover); }
-.primary-button:active { background:var(--accent-hover); }
+.primary-button:hover { transform:translateY(-1px); box-shadow:var(--btn-shadow-hover); filter:brightness(1.05); }
+.primary-button:active { transform:translateY(0) scale(.985); }
 .welcome-version { color:var(--faint); font-size:10px; }
 
 .workspace-screen { display:flex; flex-direction:column; padding:38px 40px 0; }
@@ -82,14 +97,24 @@ h1,h2,p { margin:0; }
 .empty-card {
   width:520px; display:flex; flex-direction:column; align-items:center;
   padding:31px 0 34px; border:1px solid var(--line); border-radius:24px;
-  background:var(--surface); box-shadow:var(--shadow);
+  background:linear-gradient(180deg,var(--surface-top),var(--surface));
+  box-shadow:var(--card-shadow);
+  will-change:transform; transform:translateZ(0);
 }
-.plus-icon { width:52px; height:40px; display:grid; place-items:center; border-radius:12px; background:var(--pill); color:var(--accent); }
+.plus-icon { width:52px; height:40px; display:grid; place-items:center; border-radius:12px; background:var(--pill); color:var(--accent); box-shadow:0 0 0 1px var(--accent-soft) inset; }
 .plus-icon svg { width:25px; height:25px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; }
 .empty-card h2 { margin-top:15px; font-size:16px; }
 .empty-card p { margin-top:7px; color:var(--muted); font-size:13px; }
 .add-button { margin-top:17px; }
 .workspace-version { position:absolute; right:15px; bottom:11px; color:var(--faint); font-size:9px; opacity:.72; }
+
+/* Only while the window is actually being moved. Blur and large shadow blurs
+   are the two things WebView2 cannot cheaply re-rasterize mid-drag. */
+html.is-dragging .ambient-glow { filter:none; opacity:.55; }
+html.is-dragging .welcome-card,
+html.is-dragging .empty-card { box-shadow:0 8px 18px -12px rgba(0,0,0,.6); }
+html.is-dragging .primary-button { box-shadow:none; }
+html.is-dragging * { transition:none !important; }
 
 @media (max-height:560px) {
   .welcome-card { padding:22px 40px 24px; }

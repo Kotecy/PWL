@@ -1,14 +1,16 @@
 const sunIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.45 1.45M18.35 18.35l1.45 1.45M2.5 12h2M19.5 12h2M4.2 19.8l1.45-1.45M18.35 5.65l1.45-1.45"/></svg>`;
 const moonIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.1A8.3 8.3 0 0 1 8.9 3.8 8.4 8.4 0 1 0 20.2 15.1Z"/></svg>`;
 
+const root = document.documentElement;
 const welcome = document.getElementById('welcomeScreen');
 const workspace = document.getElementById('workspaceScreen');
 const themeButton = document.getElementById('themeButton');
+const dragZone = document.querySelector('.drag-zone');
 let currentTheme = 'dark';
 
 function setTheme(theme) {
   currentTheme = theme === 'light' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = currentTheme;
+  root.dataset.theme = currentTheme;
   themeButton.innerHTML = currentTheme === 'dark' ? sunIcon : moonIcon;
   themeButton.setAttribute('aria-label', currentTheme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему');
 }
@@ -17,6 +19,15 @@ function showScreen(accepted) {
   welcome.hidden = accepted;
   workspace.hidden = !accepted;
 }
+
+// Drop blur and wide shadows for the duration of a window drag only.
+function endDrag() {
+  root.classList.remove('is-dragging');
+}
+dragZone.addEventListener('pointerdown', () => root.classList.add('is-dragging'));
+window.addEventListener('pointerup', endDrag);
+window.addEventListener('pointercancel', endDrag);
+window.addEventListener('blur', endDrag);
 
 window.addEventListener('pywebviewready', async () => {
   const state = await window.pywebview.api.get_state();
