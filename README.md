@@ -5,7 +5,7 @@
 **Менеджер аккаунтов Perfect World** — десктопное приложение с нативным
 frameless-окном и современным интерфейсом на HTML/CSS/JS.
 
-[![Version](https://img.shields.io/badge/version-0.5.2-blue)](#)
+[![Version](https://img.shields.io/badge/version-0.7.1-blue)](#)
 [![Python](https://img.shields.io/badge/Python-3.12+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](#)
 [![Platform](https://img.shields.io/badge/Windows-10/11-0078D6?logo=windows&logoColor=white)](#)
@@ -19,8 +19,10 @@ frameless-окном и современным интерфейсом на HTML/
 - **Онбординг-мастер** — добавление сервера и первого аккаунта в два шага прямо из приветственного экрана
 - **Список серверов** — карточки с уникальными эмблемами и пагинацией (4 сервера на страницу)
 - **Подключение Elementclient** — у сервера без пути к клиенту отображается предупреждение; путь можно указать через контекстное меню или при попытке входа
-- **Список аккаунтов** — перетаскивание строк для смены порядка, контекстное меню, редактирование, автовход на персонажа (макет)
+- **Список аккаунтов** — перетаскивание строк для смены порядка, контекстное меню (редактировать/удалить), иконки классов
+- **Вход в игру** — кнопка «Войти» запускает `elementclient.exe` и автоматически вводит логин/пароль в окно игры (Win32 `SendInput`, работает с любыми клиентами)
 - **Светлая и тёмная темы** — переключаются одной кнопкой и сохраняются между запусками
+- **Сворачивание в трей** — по настройке кнопка «Свернуть» прячет приложение в системный трей с иконкой и меню восстановления
 - **Нативное окно** — frameless с собственной шапкой, скруглёнными углами и плавным перетаскиванием
 - **Без браузера** — интерфейс рендерится через WebView2, Python остаётся backend'ом
 
@@ -31,6 +33,7 @@ frameless-окном и современным интерфейсом на HTML/
 | Backend | Python 3.12+, pywebview, Edge Chromium (WebView2) |
 | UI | HTML5, CSS3 (переменные, градиенты, анимации), ванильный JavaScript |
 | Нативное окно | Win32 API: регион окна, `WS_MINIMIZEBOX`, перетаскивание |
+| Трей | pystray + Pillow (опционально, для сворачивания в трей) |
 | Сборка | PyInstaller, GitHub Actions |
 
 ## Быстрый старт
@@ -43,14 +46,14 @@ frameless-окном и современным интерфейсом на HTML/
 ### Запуск из исходников
 
 ```bash
-pip install -r requirements.txt
+pip install "pywebview>=5.4,<7" "pystray>=0.19,<1" "pillow>=10"
 python main.py
 ```
 
 ### Сборка в .exe
 
 ```powershell
-pip install -r requirements.txt pyinstaller
+pip install "pywebview>=5.4,<7" pyinstaller "pystray>=0.19,<1" "pillow>=10"
 pyinstaller --noconfirm --clean --onefile --windowed --name PWL --add-data "web;web" main.py
 ```
 
@@ -67,19 +70,19 @@ GitHub Actions автоматически собирает `PWL.exe` при ка
 
 ```
 PWL/
-├── main.py              # Backend, нативное окно, JS-мост (Api)
-├── requirements.txt
+├── main.py              # Backend, нативное окно, JS-мост (Api), трей
 ├── web/
 │   ├── index.html       # Все экраны интерфейса
 │   ├── styles.css       # Тёмная/светлая темы, карточки, таблицы
-│   └── app.js           # Логика экранов, мастера, drag-and-drop
+│   ├── app.js           # Логика экранов, мастера, drag-and-drop
+│   └── class/           # Иконки классов (webp)
 ├── .github/workflows/   # Сборка Windows .exe
 └── CHANGELOG.md
 ```
 
 ## Хранение данных
 
-Настройки (флаг онбординга, тема) сохраняются в JSON:
+Настройки (флаг онбординга, тема, сворачивание в трей), серверы и аккаунты сохраняются в JSON:
 
 ```
 %APPDATA%\PWL\config.json
