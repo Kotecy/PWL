@@ -3,6 +3,7 @@
 - Frameless window (native caption removed, window stays a normal app window)
 - Rounded top corners (radius 20), square bottom
 - Real taskbar behaviour: click the taskbar icon to minimize / restore
+- Native window dragging, so Windows repaints the window itself
 - Slim 22px title bar with drag, theme switch, minimize and close
 - GitHub-like light / dark palette with a sun-moon toggle, remembered on disk
 - Welcome card (radius 30) with a working "Accept" button
@@ -21,13 +22,17 @@ if IS_WINDOWS:
     import ctypes
 
 APP_TITLE = "PWL by Kotecy"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.2.1"
 
 WINDOW_W = 900
 WINDOW_H = 620
 TITLEBAR_H = 22
 CORNER_RADIUS = 20
 CARD_RADIUS = 30
+
+# win32 constants
+WM_NCLBUTTONDOWN = 0x00A1
+HTCAPTION = 2
 
 # Virtual-key codes. They do not depend on the active keyboard layout,
 # so Ctrl+<key> keeps working on a Cyrillic layout as well.
@@ -95,6 +100,7 @@ F_PILL = ("Segoe UI Semibold", 8)
 F_H1 = ("Segoe UI Semibold", 17)
 F_H2 = ("Segoe UI Semibold", 12)
 F_BODY = ("Segoe UI", 10)
+F_SMALL = ("Segoe UI", 8)
 F_BTN = ("Segoe UI Semibold", 11)
 
 
@@ -192,12 +198,7 @@ def window_handle(root):
 
 
 def strip_native_caption(root):
-    """Hide the native title bar but keep a normal, taskbar-aware window.
-
-    overrideredirect() would also work visually, but Windows then treats the
-    window as a tool window: the taskbar icon stops minimizing / restoring it.
-    Removing WS_CAPTION instead keeps taskbar clicks, Alt+Tab and Aero Snap.
-    """
+    """Hide the native title bar but keep a normal, taskbar-aware window."""
     if not IS_WINDOWS:
         root.overrideredirect(True)
         return
@@ -237,6 +238,7 @@ class PwlApp:
         self.screen = "workspace" if self.config.get("accepted") else "welcome"
         self._drag = (0, 0)
         self._region = None
+        self._region_job = None
 
         # Layout independent Ctrl+<key> shortcuts: {virtual key code: callback}.
         # Example for later: self.hotkeys[VK["N"]] = self.add_server
@@ -252,7 +254,7 @@ class PwlApp:
         root.bind("<Escape>", lambda _e: self.close())
         root.bind("<Return>", self._on_enter)
         root.bind("<Control-KeyPress>", self._on_control_key)
-        root.bind("<Configure>", lambda _e: self._refresh_region())
+        root.bind("<Configure>", self._on_configure)
         root.after(20, self._apply_chrome)
         root.after(60, self._fade_in)
 
@@ -279,7 +281,20 @@ class PwlApp:
         strip_native_caption(self.root)
         self.root.after(40, lambda: self._refresh_region(force=True))
 
+    def _on_configure(self, event):
+        """Only react to real resizes of the toplevel, never to child widgets."""
+        if event.widget is not self.root:
+            return
+        size = (event.width, event.height)
+        if size == self._region or size[0] < 10 or size[1] < 10:
+            return
+        # Debounce: a resize drag fires dozens of events per second.
+        if self._region_job is not None:
+            self.root.after_cancel(self._region_job)
+        self._region_job = self.root.after(40, lambda: self._refresh_region(force=True))
+
     def _refresh_region(self, force=False):
+        self._region_job = None
         size = (self.root.winfo_width(), self.root.winfo_height())
         if size[0] < 10 or size[1] < 10:
             return
@@ -390,13 +405,31 @@ class PwlApp:
         cell.bind("<Leave>", lambda _e: render(theme["bar"], theme["muted"]))
         cell.bind("<Button-1>", lambda _e: self.toggle_theme())
 
+    # -- dragging ----------------------------------------------------------
     def _start_drag(self, event):
+        """Hand the drag over to Windows itself.
+
+        Moving the window from Python on every <B1-Motion> event repaints far
+        slower than the cursor moves, which smears the window across the screen.
+        WM_NCLBUTTONDOWN + HTCAPTION makes Windows run its own move loop, so the
+        window is redrawn by the compositor and Aero Snap keeps working.
+        """
+        if IS_WINDOWS:
+            user32 = ctypes.windll.user32
+            hwnd = window_handle(self.root)
+            user32.ReleaseCapture()
+            user32.SendMessageW(hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0)
+            return "break"
         self._drag = (event.x_root - self.root.winfo_x(),
                       event.y_root - self.root.winfo_y())
+        return None
 
     def _on_drag(self, event):
+        if IS_WINDOWS:
+            return "break"  # Windows is already moving the window
         dx, dy = self._drag
         self.root.geometry(f"+{event.x_root - dx}+{event.y_root - dy}")
+        return None
 
     # -- screens -----------------------------------------------------------
     def _new_canvas(self):
@@ -415,7 +448,7 @@ class PwlApp:
             canvas.delete("all")
             w, h = canvas.winfo_width(), canvas.winfo_height()
             cw, ch = 460, 330
-            x1, y1 = (w - cw) / 2, (h - ch) / 2
+            x1, y1 = (w - cw) / 2, (h - ch) / 2 - 10
             x2, y2 = x1 + cw, y1 + ch
             cx = w / 2
 
@@ -446,6 +479,8 @@ class PwlApp:
             )
             CanvasButton(canvas, cx, y1 + 276, 232, 44, "\u041f\u0440\u0438\u043d\u044f\u0442\u044c",
                          self.on_accept, theme, radius=14)
+            canvas.create_text(cx, y2 + 30, text=f"v{APP_VERSION}",
+                               fill=theme["faint"], font=F_SMALL)
 
         canvas.bind("<Configure>", draw)
         self.root.after(40, draw)
@@ -495,6 +530,8 @@ class PwlApp:
                          "+   \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0441\u0435\u0440\u0432\u0435\u0440", lambda: None, theme,
                          radius=14, fill=theme["accent"], hover=theme["accent_hover"],
                          fg="#FFFFFF")
+            canvas.create_text(w - 40, h - 26, text=f"v{APP_VERSION}", anchor="e",
+                               fill=theme["faint"], font=F_SMALL)
 
         canvas.bind("<Configure>", draw)
         self.root.after(40, draw)
