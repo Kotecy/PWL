@@ -19,26 +19,25 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
-        run: pip install pyinstaller
+        run: pip install -r requirements.txt pyinstaller
 
       - name: Build PWL.exe
-        run: >
-          pyinstaller --noconfirm --onefile --windowed --name PWL
-          --exclude-module unittest
-          --exclude-module pydoc
-          --exclude-module doctest
-          --exclude-module email
-          --exclude-module http
-          --exclude-module xml
-          --exclude-module xmlrpc
-          --exclude-module pdb
-          --exclude-module sqlite3
-          --exclude-module test
-          --exclude-module lib2to3
-          --exclude-module distutils
-          --exclude-module setuptools
-          --exclude-module pip
-          main.py
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --onefile --windowed --name PWL `
+            --add-data "web;web" `
+            --exclude-module PyQt5 `
+            --exclude-module PyQt6 `
+            --exclude-module PySide2 `
+            --exclude-module PySide6 `
+            --exclude-module wx `
+            --exclude-module gi `
+            --exclude-module tkinter `
+            --exclude-module unittest `
+            --exclude-module pydoc `
+            --exclude-module doctest `
+            --exclude-module test `
+            main.py
 
       - name: Report size
         shell: pwsh
