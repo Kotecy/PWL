@@ -18,11 +18,31 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install PyInstaller
+      - name: Install build tools
         run: pip install pyinstaller
 
       - name: Build PWL.exe
-        run: pyinstaller --noconfirm --onefile --windowed --name PWL main.py
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name PWL
+          --exclude-module unittest
+          --exclude-module pydoc
+          --exclude-module doctest
+          --exclude-module email
+          --exclude-module http
+          --exclude-module xml
+          --exclude-module xmlrpc
+          --exclude-module pdb
+          --exclude-module sqlite3
+          --exclude-module test
+          --exclude-module lib2to3
+          --exclude-module distutils
+          --exclude-module setuptools
+          --exclude-module pip
+          main.py
+
+      - name: Report size
+        shell: pwsh
+        run: "Get-Item dist/PWL.exe | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,2)}}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
