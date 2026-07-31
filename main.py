@@ -1,10 +1,12 @@
 """PWL by Kotecy - main window.
 
-- Borderless window, rounded top corners (radius 20), square bottom
-- Always present in the Windows taskbar
-- Slim 26px title bar with drag, theme switch, minimize and close
+- Frameless window (native caption removed, window stays a normal app window)
+- Rounded top corners (radius 20), square bottom
+- Real taskbar behaviour: click the taskbar icon to minimize / restore
+- Slim 22px title bar with drag, theme switch, minimize and close
 - GitHub-like light / dark palette with a sun-moon toggle, remembered on disk
 - Welcome card (radius 30) with a working "Accept" button
+- Keyboard-layout independent hotkeys (work on RU and EN layouts)
 """
 
 import json
@@ -19,15 +21,21 @@ if IS_WINDOWS:
     import ctypes
 
 APP_TITLE = "PWL by Kotecy"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 
 WINDOW_W = 900
 WINDOW_H = 620
-TITLEBAR_H = 26
+TITLEBAR_H = 22
 CORNER_RADIUS = 20
 CARD_RADIUS = 30
 
-# GitHub-inspired palettes: never pure black, always a readable gray base.
+# Virtual-key codes. They do not depend on the active keyboard layout,
+# so Ctrl+<key> keeps working on a Cyrillic layout as well.
+VK = {
+    "A": 0x41, "D": 0x44, "E": 0x45, "F": 0x46, "L": 0x4C, "N": 0x4E,
+    "Q": 0x51, "R": 0x52, "S": 0x53, "T": 0x54, "W": 0x57,
+}
+
 THEMES = {
     "dark": {
         "bg": "#0D1117",
@@ -81,12 +89,12 @@ THEMES = {
     },
 }
 
-F_TITLE = ("Segoe UI Semibold", 9)
+F_TITLE = ("Segoe UI Semibold", 8)
+F_VERSION = ("Segoe UI", 7)
 F_PILL = ("Segoe UI Semibold", 8)
 F_H1 = ("Segoe UI Semibold", 17)
 F_H2 = ("Segoe UI Semibold", 12)
 F_BODY = ("Segoe UI", 10)
-F_SMALL = ("Segoe UI", 8)
 F_BTN = ("Segoe UI Semibold", 11)
 
 
@@ -123,7 +131,6 @@ def rounded_rect(canvas, x1, y1, x2, y2, r, **kwargs):
 
 
 def soft_elevation(canvas, x1, y1, x2, y2, r, theme, spread=3):
-    """Fake soft shadow: stacked rounded rects behind the card."""
     for pad, color in ((spread * 6, theme["shadow_far"]), (spread * 3, theme["shadow_near"])):
         rounded_rect(canvas, x1 - pad, y1 - pad + pad / 2, x2 + pad, y2 + pad + pad / 2,
                      r + pad / 2, fill=color, outline="")
@@ -184,19 +191,29 @@ def window_handle(root):
     return hwnd or root.winfo_id()
 
 
-def show_in_taskbar(root):
+def strip_native_caption(root):
+    """Hide the native title bar but keep a normal, taskbar-aware window.
+
+    overrideredirect() would also work visually, but Windows then treats the
+    window as a tool window: the taskbar icon stops minimizing / restoring it.
+    Removing WS_CAPTION instead keeps taskbar clicks, Alt+Tab and Aero Snap.
+    """
     if not IS_WINDOWS:
+        root.overrideredirect(True)
         return
-    GWL_EXSTYLE = -20
-    WS_EX_APPWINDOW = 0x00040000
-    WS_EX_TOOLWINDOW = 0x00000080
+    GWL_STYLE = -16
+    WS_CAPTION = 0x00C00000
+    WS_SYSMENU = 0x00080000
+    WS_MINIMIZEBOX = 0x00020000
+    WS_THICKFRAME = 0x00040000
+    SWP_FLAGS = 0x0001 | 0x0002 | 0x0004 | 0x0020  # NOSIZE NOMOVE NOZORDER FRAMECHANGED
+
     user32 = ctypes.windll.user32
     hwnd = window_handle(root)
-    style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-    style = (style & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW
-    user32.SetWindowLongW(hwnd, GWL_EXSTYLE, style)
-    root.withdraw()
-    root.after(10, root.deiconify)
+    style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+    style = (style & ~WS_CAPTION) | WS_SYSMENU | WS_MINIMIZEBOX | WS_THICKFRAME
+    user32.SetWindowLongW(hwnd, GWL_STYLE, style)
+    user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_FLAGS)
 
 
 def round_top_corners(root, w, h, radius=CORNER_RADIUS):
@@ -221,8 +238,11 @@ class PwlApp:
         self._drag = (0, 0)
         self._region = None
 
+        # Layout independent Ctrl+<key> shortcuts: {virtual key code: callback}.
+        # Example for later: self.hotkeys[VK["N"]] = self.add_server
+        self.hotkeys = {}
+
         root.title(APP_TITLE)
-        root.overrideredirect(True)
         root.attributes("-alpha", 0.0)
         self._center()
 
@@ -231,9 +251,9 @@ class PwlApp:
 
         root.bind("<Escape>", lambda _e: self.close())
         root.bind("<Return>", self._on_enter)
-        root.bind("<Control-t>", lambda _e: self.toggle_theme())
+        root.bind("<Control-KeyPress>", self._on_control_key)
         root.bind("<Configure>", lambda _e: self._refresh_region())
-        root.after(30, self._apply_chrome)
+        root.after(20, self._apply_chrome)
         root.after(60, self._fade_in)
 
     @property
@@ -256,8 +276,8 @@ class PwlApp:
             self.root.after(12, lambda: self._fade_in(value))
 
     def _apply_chrome(self):
-        show_in_taskbar(self.root)
-        self.root.after(60, lambda: self._refresh_region(force=True))
+        strip_native_caption(self.root)
+        self.root.after(40, lambda: self._refresh_region(force=True))
 
     def _refresh_region(self, force=False):
         size = (self.root.winfo_width(), self.root.winfo_height())
@@ -268,14 +288,22 @@ class PwlApp:
             round_top_corners(self.root, size[0], size[1])
 
     def minimize(self):
-        if IS_WINDOWS:
-            ctypes.windll.user32.ShowWindow(window_handle(self.root), 6)  # SW_MINIMIZE
-        else:
-            self.root.overrideredirect(False)
-            self.root.iconify()
+        self.root.iconify()
 
     def close(self):
         self.root.destroy()
+
+    # -- input -------------------------------------------------------------
+    def _on_control_key(self, event):
+        action = self.hotkeys.get(event.keycode)
+        if action is not None:
+            action()
+            return "break"
+        return None
+
+    def _on_enter(self, _event):
+        if self.screen == "welcome":
+            self.on_accept()
 
     # -- theme -------------------------------------------------------------
     def toggle_theme(self):
@@ -309,13 +337,17 @@ class PwlApp:
         bar.pack(fill="x", side="top")
         bar.pack_propagate(False)
 
-        logo = tk.Canvas(bar, bg=theme["bar"], width=14, height=14, highlightthickness=0)
-        logo.pack(side="left", padx=(9, 7))
-        rounded_rect(logo, 0, 0, 14, 14, 4, fill=theme["accent"], outline="")
-        logo.create_text(7, 7, text="P", fill="#FFFFFF", font=("Segoe UI Semibold", 7))
+        logo = tk.Canvas(bar, bg=theme["bar"], width=12, height=12, highlightthickness=0)
+        logo.pack(side="left", padx=(8, 6))
+        rounded_rect(logo, 0, 0, 12, 12, 4, fill=theme["accent"], outline="")
+        logo.create_text(6, 6, text="P", fill="#FFFFFF", font=("Segoe UI Semibold", 6))
 
         title = tk.Label(bar, text=APP_TITLE, bg=theme["bar"], fg=theme["text"], font=F_TITLE)
         title.pack(side="left")
+
+        version = tk.Label(bar, text=f"v{APP_VERSION}", bg=theme["bar"],
+                           fg=theme["faint"], font=F_VERSION)
+        version.pack(side="left", padx=(6, 0))
 
         self._control(bar, "\u2715", self.close, theme["danger"], theme["danger_soft"])
         self._control(bar, "\u2013", self.minimize, theme["muted"], theme["hover"])
@@ -323,14 +355,14 @@ class PwlApp:
 
         tk.Frame(self.body, bg=theme["line"], height=1).pack(fill="x", side="top")
 
-        for widget in (bar, title, logo):
+        for widget in (bar, title, version, logo):
             widget.bind("<Button-1>", self._start_drag)
             widget.bind("<B1-Motion>", self._on_drag)
 
     def _control(self, bar, glyph, command, fg, hover_bg):
         theme = self.theme
         btn = tk.Label(bar, text=glyph, bg=theme["bar"], fg=fg,
-                       font=("Segoe UI", 9), width=4, cursor="hand2")
+                       font=("Segoe UI", 8), width=4, cursor="hand2")
         btn.pack(side="right", fill="y")
         btn.bind("<Button-1>", lambda _e: command())
         btn.bind("<Enter>", lambda _e: btn.configure(bg=hover_bg, fg=theme["text"]))
@@ -340,18 +372,18 @@ class PwlApp:
     def _theme_switch(self, bar):
         """Sun in dark mode, moon in light mode - the icon shows what you switch to."""
         theme = self.theme
-        cell = tk.Canvas(bar, bg=theme["bar"], width=32, height=TITLEBAR_H,
+        cell = tk.Canvas(bar, bg=theme["bar"], width=28, height=TITLEBAR_H,
                          highlightthickness=0, cursor="hand2")
         cell.pack(side="right", fill="y")
-        cx, cy = 16, TITLEBAR_H / 2
+        cx, cy = 14, TITLEBAR_H / 2
 
         def render(bg, fg):
             cell.delete("all")
             cell.configure(bg=bg)
             if self.theme_name == "dark":
-                draw_sun(cell, cx, cy, fg)
+                draw_sun(cell, cx, cy, fg, r=3.5)
             else:
-                draw_moon(cell, cx, cy, fg, bg)
+                draw_moon(cell, cx, cy, fg, bg, r=5)
 
         render(theme["bar"], theme["muted"])
         cell.bind("<Enter>", lambda _e: render(theme["hover"], theme["accent"]))
@@ -365,10 +397,6 @@ class PwlApp:
     def _on_drag(self, event):
         dx, dy = self._drag
         self.root.geometry(f"+{event.x_root - dx}+{event.y_root - dy}")
-
-    def _on_enter(self, _event):
-        if self.screen == "welcome":
-            self.on_accept()
 
     # -- screens -----------------------------------------------------------
     def _new_canvas(self):
@@ -387,7 +415,7 @@ class PwlApp:
             canvas.delete("all")
             w, h = canvas.winfo_width(), canvas.winfo_height()
             cw, ch = 460, 330
-            x1, y1 = (w - cw) / 2, (h - ch) / 2 - 8
+            x1, y1 = (w - cw) / 2, (h - ch) / 2
             x2, y2 = x1 + cw, y1 + ch
             cx = w / 2
 
@@ -418,11 +446,6 @@ class PwlApp:
             )
             CanvasButton(canvas, cx, y1 + 276, 232, 44, "\u041f\u0440\u0438\u043d\u044f\u0442\u044c",
                          self.on_accept, theme, radius=14)
-            canvas.create_text(
-                cx, y2 + 34,
-                text=f"v{APP_VERSION}  \u00b7  Enter \u2014 \u043f\u0440\u0438\u043d\u044f\u0442\u044c  \u00b7  Ctrl+T \u2014 \u0442\u0435\u043c\u0430",
-                fill=theme["faint"], font=F_SMALL,
-            )
 
         canvas.bind("<Configure>", draw)
         self.root.after(40, draw)
