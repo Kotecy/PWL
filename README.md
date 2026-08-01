@@ -55,7 +55,6 @@ pip install "pywebview>=5.4,<7" pyinstaller "pystray>=0.19,<1" "pillow>=10"
 pyinstaller --noconfirm --clean --onefile --windowed --name PWL --icon "web/launcher.ico" --add-data "web;web" main.py
 ```
 
-GitHub Actions автоматически собирает `PWL.exe` при каждом пуше в `main` и публикует его в артефакт `PWL-windows`.
 
 ## Использование
 
