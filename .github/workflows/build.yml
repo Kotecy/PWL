@@ -19,7 +19,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
-        run: pip install -r requirements.txt pyinstaller
+        run: pip install "pywebview>=5.4,<7" pyinstaller "pystray>=0.19,<1" "pillow>=10"
 
       - name: Build PWL.exe
         shell: pwsh

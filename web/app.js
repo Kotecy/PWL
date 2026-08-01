@@ -1,4 +1,4 @@
-const sunIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.6"/><path d="M12 2.5v2M12 19.5v2M4.2 4.2l1.45 1.45M18.35 18.35l1.45 1.45M2.5 12h2M19.5 12h2M4.2 19.8l1.45-1.45M18.35 5.65l1.45-1.45"/></svg>`;
+const sunIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1" fill="currentColor" stroke="none"/><path d="M12 1.6v2.4M12 20v2.4M1.6 12H4M20 12h2.4M4.4 4.4l1.7 1.7M17.9 17.9l1.7 1.7M19.6 4.4l-1.7 1.7M6.1 17.9l-1.7 1.7" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"/></svg>`;
 const moonIcon = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.1A8.3 8.3 0 0 1 8.9 3.8 8.4 8.4 0 1 0 20.2 15.1Z"/></svg>`;
 
 const RACES = {
@@ -7,7 +7,7 @@ const RACES = {
   'Сиды': ['Паладин', 'Жрец', 'Лучник'],
   'Амфибии': ['Шаман', 'Убийца', 'Бард'],
   'Древние': ['Страж', 'Мистик', 'Дух крови'],
-  'Тени': ['Призрак', 'Жрец', 'Лазурный дракон'],
+  'Тени': ['Призрак', 'Жнец', 'Лазурный дракон'],
 };
 
 const root = document.documentElement;
@@ -25,6 +25,7 @@ const servers = [];
 let clientPath = '';
 let currentServer = null;
 let selectedAccount = null;
+let editingAccountIndex = null;
 let wizardMode = false;
 let accountFromServer = false;
 let serverMenuServer = null;
@@ -70,6 +71,13 @@ function fillClasses() {
     classSelect.appendChild(option);
   }
 }
+
+const CLASS_ICONS = {
+  'Воин': 'var', 'Маг': 'mag', 'Стрелок': 'gan', 'Оборотень': 'tank', 'Странник': 'mk', 'Друид': 'dru',
+  'Паладин': 'pal', 'Жрец': 'prist', 'Лучник': 'luk', 'Шаман': 'sham', 'Убийца': 'sin', 'Бард': 'bard',
+  'Страж': 'sik', 'Мистик': 'mist', 'Дух крови': 'dk', 'Призрак': 'gost', 'Лазурный дракон': 'lazur',
+  'Жнец': 'kosa',
+};
 
 const SERVER_ART = ['art-gold', 'art-azure', 'art-violet', 'art-emerald', 'art-crimson'];
 
@@ -130,7 +138,7 @@ function renderWorkspace() {
           <div class="server-card-name">${server.name}</div>
           ${noPath ? '<button class="server-card-alert" type="button" aria-label="Нет пути к Elementclient" title="Путь к Elementclient не задан"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button>' : ''}
         </div>
-        <div class="server-card-meta">${MOCK_ACCOUNTS.length} аккаунтов</div>
+        <div class="server-card-meta">${server.accounts ? server.accounts.length : 0} аккаунтов</div>
       </div>
       <span class="server-card-chevron" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></svg></span>`;
     card.addEventListener('click', () => openServerAccounts(server));
@@ -169,24 +177,6 @@ function renderPagination() {
   }
 }
 
-const MOCK_ACCOUNTS = [
-  { class: 'Воин', nick: 'ShadowBlade', login: 'user1', server: 'PWI Classic', comment: 'Основной' },
-  { class: 'Маг', nick: 'FrostQueen', login: 'user2', server: 'PWI Classic', comment: '' },
-  { class: 'Лучник', nick: 'NightOwl', login: 'user3', server: 'PWI Classic', comment: 'Альт с биржей' },
-  { class: 'Оборотень', nick: 'WolfFang', login: 'user4', server: 'PWI Classic', comment: '' },
-  { class: 'Друид', nick: 'Willowmoss', login: 'user5', server: 'PWI Classic', comment: 'Фермер' },
-  { class: 'Странник', nick: 'DustWalker', login: 'user6', server: 'PWI Classic', comment: '' },
-  { class: 'Паладин', nick: 'IronVow', login: 'user7', server: 'PWI Classic', comment: 'Танк' },
-  { class: 'Жрец', nick: 'HolySpark', login: 'user8', server: 'PWI Classic', comment: '' },
-  { class: 'Шаман', nick: 'StormCaller', login: 'user9', server: 'PWI Classic', comment: 'Альт' },
-  { class: 'Убийца', nick: 'ShadowStep', login: 'user10', server: 'PWI Classic', comment: '' },
-  { class: 'Бард', nick: 'Songbird', login: 'user11', server: 'PWI Classic', comment: '' },
-  { class: 'Мистик', nick: 'Voidgazer', login: 'user12', server: 'PWI Classic', comment: 'Крафт' },
-  { class: 'Страж', nick: 'Stonewall', login: 'user13', server: 'PWI Classic', comment: '' },
-  { class: 'Дух крови', nick: 'Bloodmoon', login: 'user14', server: 'PWI Classic', comment: '' },
-  { class: 'Лазурный дракон', nick: 'AzureScale', login: 'user15', server: 'PWI Classic', comment: 'Основной альт' },
-];
-
 function openServerAccounts(server) {
   currentServer = server;
   selectedAccount = null;
@@ -197,35 +187,46 @@ function openServerAccounts(server) {
   renderAccounts();
 }
 
+function classIcon(className) {
+  const file = CLASS_ICONS[className];
+  if (!file) return '';
+  return `<img class="class-icon-img" src="class/${file}.webp" alt="" width="26" height="26" loading="lazy">`;
+}
+
 function renderAccounts() {
   const tbody = document.getElementById('accountsBody');
+  const accounts = currentServer ? currentServer.accounts : [];
   tbody.innerHTML = '';
-  for (const [index, account] of MOCK_ACCOUNTS.entries()) {
+  for (const [index, account] of accounts.entries()) {
     const tr = document.createElement('tr');
     tr.dataset.index = index;
     if (selectedAccount === index) tr.classList.add('selected');
     tr.innerHTML = `
       <td class="acc-grip"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M5 4.5h6M5 8h6M5 11.5h6"/></svg></td>
-      <td class="acc-class"><span class="class-icon" aria-hidden="true"></span></td>
+      <td class="acc-class"><span class="class-icon" aria-hidden="true">${classIcon(account.class)}</span></td>
       <td>${account.nick}</td>
       <td>${account.login}</td>
-      <td>${account.server}</td>
-      <td>${account.comment}</td>`;
+      <td>${currentServer ? currentServer.name : ''}</td>
+      <td>${account.comment || ''}</td>`;
     tr.addEventListener('click', () => {
-      selectedAccount = index;
+      selectedAccount = currentRowIndex(tr);
       renderAccounts();
     });
     tr.addEventListener('dblclick', () => enterAccount());
     tr.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      selectedAccount = index;
+      selectedAccount = currentRowIndex(tr);
       renderAccounts();
       openContextMenu(event.clientX, event.clientY);
     });
-    tr.addEventListener('pointerdown', (event) => startRowDrag(event, tr, index));
+    tr.addEventListener('pointerdown', (event) => startRowDrag(event, tr, currentRowIndex(tr)));
     tbody.appendChild(tr);
   }
   document.getElementById('enterButton').disabled = selectedAccount === null;
+}
+
+function currentRowIndex(row) {
+  return Array.prototype.indexOf.call(row.parentElement.children, row);
 }
 
 let dragState = null;
@@ -276,12 +277,13 @@ function onRowDragMove(event) {
 function reorderRows(targetIndex) {
   const { row, tbody, rows } = dragState;
   const fromIndex = dragState.lastIndex;
+  const accounts = currentServer ? currentServer.accounts : [];
 
   const before = new Map();
   for (const r of rows) before.set(r, r.getBoundingClientRect().top);
 
-  const [moved] = MOCK_ACCOUNTS.splice(fromIndex, 1);
-  MOCK_ACCOUNTS.splice(targetIndex, 0, moved);
+  const [moved] = accounts.splice(fromIndex, 1);
+  accounts.splice(targetIndex, 0, moved);
   selectedAccount = targetIndex;
   document.getElementById('enterButton').disabled = false;
 
@@ -359,6 +361,7 @@ function openPathModal() {
   if (!pathModalServer) return;
   pendingClientPath = '';
   document.getElementById('pathStatus').hidden = true;
+  document.getElementById('pathError').hidden = true;
   document.getElementById('pathSaveButton').disabled = true;
   document.getElementById('pathModalTitle').textContent = `«${pathModalServer.name}» — нужен Elementclient`;
   document.getElementById('pathModal').hidden = false;
@@ -366,7 +369,6 @@ function openPathModal() {
 
 function closePathModal() {
   document.getElementById('pathModal').hidden = true;
-  document.getElementById('pathFile').value = '';
   pathModalServer = null;
   pendingClientPath = '';
 }
@@ -377,13 +379,19 @@ function resetPathStatus() {
   document.getElementById('pathSaveButton').disabled = true;
 }
 
-function enterAccount() {
+async function enterAccount() {
   if (currentServer && !currentServer.path) {
     pathModalServer = currentServer;
     openPathModal();
     return;
   }
-  // Mockup: real login is not implemented yet.
+  if (currentServer && selectedAccount !== null) {
+    const res = await window.pywebview.api.launch(currentServer.name, selectedAccount);
+    if (!res.ok) {
+      pathModalServer = currentServer;
+      openPathModal();
+    }
+  }
 }
 
 document.getElementById('accountsBackButton').addEventListener('click', () => {
@@ -397,19 +405,52 @@ document.getElementById('enterButton').addEventListener('click', () => {
   }
 });
 
-document.getElementById('addAccountButton').addEventListener('click', () => {
+function openAccountForm(editIndex) {
   resetAccountForm();
   setWizardMode(false);
   accountFromServer = true;
+  editingAccountIndex = editIndex;
+  if (editIndex !== null && currentServer) {
+    const acc = currentServer.accounts[editIndex];
+    document.getElementById('accountLogin').value = acc.login || '';
+    document.getElementById('accountPassword').value = acc.password || '';
+    document.getElementById('characterNick').value = acc.nick || '';
+    document.getElementById('autoRole').checked = !!acc.auto;
+    document.getElementById('raceSelect').value = raceOf(acc.class);
+    fillClasses();
+    document.getElementById('classSelect').value = acc.class;
+    document.getElementById('accountComment').value = acc.comment || '';
+    document.getElementById('commentField').hidden = false;
+    document.getElementById('accountBackButton').textContent = 'Отмена';
+  }
   showScreen('account');
+}
+
+function raceOf(cls) {
+  for (const race of Object.keys(RACES)) {
+    if (RACES[race].includes(cls)) return race;
+  }
+  return Object.keys(RACES)[0];
+}
+
+document.getElementById('addAccountButton').addEventListener('click', () => {
+  openAccountForm(null);
 });
 
 document.getElementById('contextEditButton').addEventListener('click', () => {
   hideContextMenu();
-  document.getElementById('commentField').hidden = false;
-  document.getElementById('accountBackButton').textContent = 'Отмена';
-  accountFromServer = true;
-  showScreen('account');
+  openAccountForm(selectedAccount);
+});
+
+document.getElementById('contextDeleteButton').addEventListener('click', async () => {
+  hideContextMenu();
+  if (currentServer && selectedAccount !== null) {
+    await window.pywebview.api.delete_account(currentServer.name, selectedAccount);
+    currentServer.accounts.splice(selectedAccount, 1);
+    selectedAccount = null;
+    renderAccounts();
+    renderWorkspace();
+  }
 });
 
 document.getElementById('serverAddPathButton').addEventListener('click', () => {
@@ -421,23 +462,31 @@ document.getElementById('serverAddPathButton').addEventListener('click', () => {
   }
 });
 
-document.getElementById('pathBrowseButton').addEventListener('click', () => {
-  document.getElementById('pathFile').click();
-});
-
-document.getElementById('pathFile').addEventListener('change', (event) => {
-  const file = event.target.files && event.target.files[0];
-  if (file) {
-    pendingClientPath = file.path || file.name;
+document.getElementById('pathBrowseButton').addEventListener('click', async () => {
+  const errorEl = document.getElementById('pathError');
+  errorEl.hidden = true;
+  const res = await window.pywebview.api.pick_elementclient();
+  if (res && res.ok) {
+    pendingClientPath = res.path;
     document.getElementById('pathStatus').hidden = false;
     document.getElementById('pathSaveButton').disabled = false;
+  } else if (res && res.error) {
+    errorEl.textContent = res.error;
+    errorEl.hidden = false;
   }
 });
 
-document.getElementById('pathSaveButton').addEventListener('click', () => {
+document.getElementById('pathSaveButton').addEventListener('click', async () => {
   if (pathModalServer && pendingClientPath) {
     pathModalServer.path = pendingClientPath;
+    await window.pywebview.api.set_server_path(pathModalServer.name, pendingClientPath);
+    const accountsVisible = currentServer && !document.getElementById('accountsView').hidden;
     renderWorkspace();
+    if (accountsVisible) {
+      document.getElementById('serverList').hidden = true;
+      document.getElementById('accountsView').hidden = false;
+      renderAccounts();
+    }
   }
   closePathModal();
 });
@@ -452,6 +501,7 @@ window.addEventListener('click', () => {
   hideServerContextMenu();
 });
 window.addEventListener('contextmenu', (event) => {
+  if (event.defaultPrevented) return;
   if (event.target.closest('.accounts-table') || event.target.closest('.server-card')) return;
   hideContextMenu();
   hideServerContextMenu();
@@ -460,8 +510,14 @@ window.addEventListener('contextmenu', (event) => {
 window.addEventListener('pywebviewready', async () => {
   const state = await window.pywebview.api.get_state();
   setTheme(state.theme);
+  document.getElementById('trayToggle').checked = state.minimize_to_tray;
+  const launchMode = document.querySelector(`input[name="launchMode"][value="${state.launch_mode}"]`);
+  if (launchMode) launchMode.checked = true;
   document.getElementById('welcomeVersion').textContent = `v${state.version}`;
   document.getElementById('workspaceVersion').textContent = `v${state.version}`;
+  const data = await window.pywebview.api.get_data();
+  servers.length = 0;
+  servers.push(...data.servers);
   fillRaces();
   fillClasses();
   renderWorkspace();
@@ -477,11 +533,35 @@ themeButton.addEventListener('click', async () => {
 document.getElementById('minimizeButton').addEventListener('click', () => window.pywebview.api.minimize());
 document.getElementById('closeButton').addEventListener('click', () => window.pywebview.api.close());
 
+const settingsModal = document.getElementById('settingsModal');
+document.getElementById('settingsButton').addEventListener('click', () => {
+  settingsModal.hidden = false;
+});
+document.getElementById('settingsCloseButton').addEventListener('click', () => {
+  settingsModal.hidden = true;
+});
+settingsModal.addEventListener('click', (event) => {
+  if (event.target === settingsModal) settingsModal.hidden = true;
+});
+window.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') settingsModal.hidden = true;
+});
+document.getElementById('trayToggle').addEventListener('change', async (event) => {
+  await window.pywebview.api.set_minimize_to_tray(event.target.checked);
+});
+document.querySelectorAll('input[name="launchMode"]').forEach((radio) => {
+  radio.addEventListener('change', async (event) => {
+    if (event.target.checked) {
+      await window.pywebview.api.set_launch_mode(event.target.value);
+    }
+  });
+});
+
 function resetServerForm() {
   document.getElementById('serverName').value = '';
   clientPath = '';
   document.getElementById('clientStatus').hidden = true;
-  document.getElementById('clientPathFile').value = '';
+  document.getElementById('clientError').hidden = true;
 }
 
 function openServerForm() {
@@ -509,27 +589,34 @@ document.getElementById('addServerToolbarButton').addEventListener('click', () =
   openServerForm();
 });
 
-document.getElementById('browseButton').addEventListener('click', () => {
-  document.getElementById('clientPathFile').click();
-});
-
-document.getElementById('clientPathFile').addEventListener('change', (event) => {
-  const file = event.target.files && event.target.files[0];
-  if (file) {
-    clientPath = file.path || file.name;
+document.getElementById('browseButton').addEventListener('click', async () => {
+  const errorEl = document.getElementById('clientError');
+  errorEl.hidden = true;
+  const res = await window.pywebview.api.pick_elementclient();
+  if (res && res.ok) {
+    clientPath = res.path;
     document.getElementById('clientStatus').hidden = false;
+  } else if (res && res.error) {
+    errorEl.textContent = res.error;
+    errorEl.hidden = false;
   }
 });
 
-document.getElementById('serverForm').addEventListener('submit', (event) => {
+document.getElementById('serverForm').addEventListener('submit', async (event) => {
   event.preventDefault();
   const name = document.getElementById('serverName').value.trim();
-  servers.push({ name, path: clientPath });
+  const server = { name, path: clientPath, accounts: [] };
+  const res = await window.pywebview.api.add_server(name, clientPath);
+  if (res.ok) {
+    servers.push(server);
+    if (wizardMode) currentServer = server;
+  }
   serverPage = Math.floor((servers.length - 1) / SERVERS_PER_PAGE);
   renderWorkspace();
   if (wizardMode) {
     resetAccountForm();
     accountFromServer = false;
+    editingAccountIndex = null;
     showScreen('account');
   } else {
     showScreen('workspace');
@@ -561,10 +648,29 @@ function resetAccountForm() {
   fillClasses();
 }
 
-document.getElementById('accountForm').addEventListener('submit', (event) => {
+document.getElementById('accountForm').addEventListener('submit', async (event) => {
   event.preventDefault();
+  const account = {
+    login: document.getElementById('accountLogin').value.trim(),
+    password: document.getElementById('accountPassword').value,
+    nick: document.getElementById('characterNick').value.trim(),
+    auto: document.getElementById('autoRole').checked,
+    class: document.getElementById('classSelect').value,
+    comment: document.getElementById('accountComment').value.trim(),
+  };
+  if (currentServer) {
+    if (editingAccountIndex !== null) {
+      await window.pywebview.api.update_account(currentServer.name, editingAccountIndex, account);
+      currentServer.accounts[editingAccountIndex] = account;
+    } else {
+      await window.pywebview.api.add_account(currentServer.name, account);
+      currentServer.accounts.push(account);
+    }
+  }
   resetAccountForm();
+  editingAccountIndex = null;
   setWizardMode(false);
+  renderWorkspace();
   if (accountFromServer) {
     if (currentServer) openServerAccounts(currentServer);
     else showScreen('workspace');
