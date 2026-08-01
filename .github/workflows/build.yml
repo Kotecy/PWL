@@ -25,6 +25,7 @@ jobs:
         shell: pwsh
         run: |
           pyinstaller --noconfirm --clean --onefile --windowed --name PWL `
+            --icon "web/launcher.ico" `
             --add-data "web;web" `
             --exclude-module PyQt5 `
             --exclude-module PyQt6 `
