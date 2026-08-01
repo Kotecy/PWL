@@ -3,8 +3,11 @@ import ctypes
 import json
 import os
 import random
+import subprocess
 import sys
+import tempfile
 import threading
+import time
 from pathlib import Path
 
 import webview
@@ -17,18 +20,11 @@ except Exception:
     _HAS_TRAY = False
 
 APP_TITLE = "PWL by Kotecy"
-APP_VERSION = "0.8.0"
+APP_VERSION = "0.9.0"
 WINDOW_W = 900
 WINDOW_H = 620
-CORNER_RADIUS = 20
 
 IS_WINDOWS = sys.platform.startswith("win")
-RGN_OR = 2
-
-
-class RECT(ctypes.Structure):
-    _fields_ = [("left", ctypes.c_long), ("top", ctypes.c_long),
-                ("right", ctypes.c_long), ("bottom", ctypes.c_long)]
 
 
 def config_path() -> Path:
@@ -66,34 +62,6 @@ def _window_hwnd() -> int:
 
     user32.EnumWindows(WNDENUMPROC(callback), None)
     return holder.value
-
-
-def round_window_corners() -> None:
-    """Round the real window instead of the page.
-
-    WebView2 renders into an opaque rectangle, so a CSS border-radius would only
-    reveal the page background behind the corners and read as a stacked layer.
-    """
-    if not IS_WINDOWS:
-        return
-    try:
-        user32, gdi32 = ctypes.windll.user32, ctypes.windll.gdi32
-        hwnd = _window_hwnd()
-        if not hwnd:
-            return
-        rect = RECT()
-        user32.GetWindowRect(hwnd, ctypes.byref(rect))
-        w, h = rect.right - rect.left, rect.bottom - rect.top
-        if w < 10 or h < 10:
-            return
-        region = gdi32.CreateRoundRectRgn(0, 0, w + 1, h + 1,
-                                          CORNER_RADIUS * 2, CORNER_RADIUS * 2)
-        square_bottom = gdi32.CreateRectRgn(0, CORNER_RADIUS, w + 1, h + 1)
-        gdi32.CombineRgn(region, region, square_bottom, RGN_OR)
-        gdi32.DeleteObject(square_bottom)
-        user32.SetWindowRgn(hwnd, region, True)
-    except Exception:
-        pass
 
 
 class Api:
@@ -144,16 +112,19 @@ class Api:
     def get_state(self) -> dict:
         with self._lock:
             data = self._read()
+        launch_mode = data.get("launch_mode", "bat")
+        if launch_mode != "bat":
+            launch_mode = "bat"
         return {
             "accepted": bool(data.get("accepted", False)),
             "theme": data.get("theme", "dark"),
             "minimize_to_tray": bool(data.get("minimize_to_tray", False)),
-            "launch_mode": data.get("launch_mode", "bat"),
+            "launch_mode": launch_mode,
             "version": APP_VERSION,
         }
 
     def set_launch_mode(self, mode: str) -> dict:
-        if mode not in ("auto", "bat"):
+        if mode != "bat":
             return {"ok": False}
         with self._lock:
             data = self._read()
@@ -186,6 +157,22 @@ class Api:
                     return {"ok": True}
         return {"ok": False, "error": "Сервер не найден"}
 
+    def delete_server(self, name: str, keep_accounts: bool = False) -> dict:
+        """Remove a server. If keep_accounts is True, its accounts are kept in
+        the config file (moved aside), otherwise they are deleted too."""
+        with self._lock:
+            data = self._read_accounts()
+            servers = data.get("servers", [])
+            for i, s in enumerate(servers):
+                if s.get("name") == name:
+                    if keep_accounts:
+                        kept = data.setdefault("kept_accounts", {})
+                        kept.setdefault(name, []).extend(s.get("accounts", []))
+                    del servers[i]
+                    self._write_accounts(data)
+                    return {"ok": True}
+        return {"ok": False, "error": "Сервер не найден"}
+
     def pick_elementclient(self) -> dict:
         """Native file picker for elementclient.exe itself (returns full file path).
 
@@ -194,13 +181,12 @@ class Api:
         the .exe directly instead, which also guarantees launch() always
         finds it right away (no more "path saved but still not found")."""
         try:
-            import webview as _wv
             # pywebview's winforms backend falls back to os.environ['HOMEPATH']
             # when directory is empty, which on Windows is a drive-less path
             # like '\\Users\\aleks'. Pass an explicit, valid directory instead.
             start = self._pick_start_dir()
             result = self._window.create_file_dialog(
-                _wv.FileDialog.OPEN,
+                webview.FileDialog.OPEN,
                 directory=start,
                 allow_multiple=False,
                 file_types=(
@@ -301,6 +287,15 @@ class Api:
 
     def _make_tray_icon(self):
         def make_image():
+            try:
+                icon_path = resource_path("web", "launcher.ico")
+                if icon_path.is_file():
+                    img = Image.open(icon_path)
+                    img = img.convert("RGBA")
+                    img = img.resize((64, 64), Image.LANCZOS)
+                    return img
+            except Exception:
+                pass
             size = 64
             image = Image.new("RGBA", (size, size), (0, 0, 0, 0))
             draw = ImageDraw.Draw(image)
@@ -353,37 +348,10 @@ class Api:
         if not exe.is_file():
             return {"ok": False, "error": f"elementclient.exe не найден по пути {exe}"}
 
-        threading.Thread(target=self._launch_and_login, args=(str(exe), account), daemon=True).start()
+        threading.Thread(target=self._launch_via_bat, args=(str(exe), account), daemon=True).start()
         return {"ok": True}
 
-    def _launch_and_login(self, exe: str, account: dict) -> None:
-        import subprocess
-        import time
-
-        with self._lock:
-            data = self._read()
-        mode = data.get("launch_mode", "bat")
-
-        if mode == "bat":
-            self._launch_via_bat(exe, account)
-            return
-
-        try:
-            proc = subprocess.Popen([exe], cwd=str(Path(exe).parent))
-        except Exception:
-            return
-        hwnd = self._wait_for_login_window(proc.pid, timeout=25.0)
-        if not hwnd:
-            return
-        try:
-            self._type_login(hwnd, account.get("login", ""), account.get("password", ""))
-        except Exception:
-            pass
-
     def _launch_via_bat(self, exe: str, account: dict) -> None:
-        import subprocess
-        import tempfile
-
         login = account.get("login", "")
         password = account.get("password", "")
         nick = account.get("nick", "")
@@ -417,183 +385,6 @@ class Api:
         except Exception:
             pass
 
-    def _type_login(self, hwnd: int, login: str, password: str) -> None:
-        import time
-
-        if hwnd:
-            self._force_foreground(hwnd)
-            time.sleep(0.3)
-            self._ensure_english_layout(hwnd)
-
-        def key(vk):
-            self._send_vk(vk)
-
-        def send_text(text):
-            for ch in text:
-                self._send_unicode(ch)
-                time.sleep(0.02)
-
-        send_text(login)
-        time.sleep(0.2)
-        key(0x09)  # Tab
-        time.sleep(0.2)
-        send_text(password)
-        time.sleep(0.2)
-        key(0x0D)  # Enter
-
-    def _force_foreground(self, hwnd: int) -> bool:
-        """Plain SetForegroundWindow can silently fail (Windows blocks a
-        background process from stealing focus unless certain conditions
-        are met), which would make every subsequent keystroke go nowhere
-        with no error at all. AttachThreadInput briefly merges our input
-        queue with the target window's, which is the standard, reliable
-        way around that restriction."""
-        user32 = ctypes.windll.user32
-        kernel32 = ctypes.windll.kernel32
-        SW_RESTORE = 9
-
-        if user32.GetForegroundWindow() == hwnd:
-            return True
-
-        target_thread = user32.GetWindowThreadProcessId(hwnd, None)
-        current_thread = kernel32.GetCurrentThreadId()
-        attached = False
-        try:
-            if target_thread and target_thread != current_thread:
-                attached = bool(user32.AttachThreadInput(current_thread, target_thread, True))
-            user32.ShowWindow(hwnd, SW_RESTORE)
-            user32.BringWindowToTop(hwnd)
-            user32.SetForegroundWindow(hwnd)
-            user32.SetFocus(hwnd)
-        except Exception:
-            pass
-        finally:
-            if attached:
-                user32.AttachThreadInput(current_thread, target_thread, False)
-        return user32.GetForegroundWindow() == hwnd
-
-    def _ensure_english_layout(self, hwnd: int) -> None:
-        """Switch the target window's keyboard layout to English (US) if it
-        isn't already active, so typed credentials aren't garbled by a
-        non-Latin layout. No-ops quietly if English isn't among the user's
-        installed input languages (LoadKeyboardLayoutW returns NULL)."""
-        import time
-        try:
-            user32 = ctypes.windll.user32
-            ENGLISH_US_LANGID = 0x0409
-            thread_id = user32.GetWindowThreadProcessId(hwnd, None)
-            current_hkl = user32.GetKeyboardLayout(thread_id)
-            # Low word of HKL is the language identifier.
-            if (current_hkl & 0xFFFF) == ENGLISH_US_LANGID:
-                return
-            KLF_ACTIVATE = 0x00000001
-            hkl = user32.LoadKeyboardLayoutW("00000409", KLF_ACTIVATE)
-            if not hkl:
-                return
-            WM_INPUTLANGCHANGEREQUEST = 0x0050
-            user32.PostMessageW(hwnd, WM_INPUTLANGCHANGEREQUEST, 0, hkl)
-            time.sleep(0.2)
-        except Exception:
-            pass
-
-    def _send_vk(self, vk: int) -> None:
-        """Send a virtual-key press via SendInput (same modern API used for
-        unicode text), rather than the older keybd_event, for consistency."""
-        KEYEVENTF_KEYUP = 0x0002
-
-        class KEYBDINPUT(ctypes.Structure):
-            _fields_ = [("wVk", ctypes.c_ushort), ("wScan", ctypes.c_ushort),
-                        ("dwFlags", ctypes.c_ulong), ("time", ctypes.c_ulong),
-                        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))]
-
-        class INPUT(ctypes.Structure):
-            _fields_ = [("type", ctypes.c_ulong), ("ki", KEYBDINPUT)]
-
-        user32 = ctypes.windll.user32
-        inputs = (INPUT * 2)()
-        for i, flag in enumerate((0, KEYEVENTF_KEYUP)):
-            inputs[i].type = 1  # INPUT_KEYBOARD
-            inputs[i].ki.wVk = vk
-            inputs[i].ki.wScan = 0
-            inputs[i].ki.dwFlags = flag
-            inputs[i].ki.dwExtraInfo = None
-        user32.SendInput(2, ctypes.byref(inputs), ctypes.sizeof(INPUT))
-
-    def _send_unicode(self, char: str) -> None:
-        user32 = ctypes.windll.user32
-        KEYEVENTF_UNICODE = 0x0004
-        KEYEVENTF_KEYUP = 0x0002
-
-        class KEYBDINPUT(ctypes.Structure):
-            _fields_ = [("wVk", ctypes.c_ushort), ("wScan", ctypes.c_ushort),
-                        ("dwFlags", ctypes.c_ulong), ("time", ctypes.c_ulong),
-                        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong))]
-
-        class INPUT(ctypes.Structure):
-            _fields_ = [("type", ctypes.c_ulong), ("ki", KEYBDINPUT)]
-
-        inputs = (INPUT * 2)()
-        for i, flag in enumerate((KEYEVENTF_UNICODE, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)):
-            inputs[i].type = 1  # INPUT_KEYBOARD
-            inputs[i].ki.wVk = 0
-            inputs[i].ki.wScan = ord(char)
-            inputs[i].ki.dwFlags = flag
-            inputs[i].ki.dwExtraInfo = None
-        user32.SendInput(2, ctypes.byref(inputs), ctypes.sizeof(INPUT))
-
-    def _enum_process_windows(self, pid: int) -> list:
-        """All visible top-level windows belonging to a specific pid, as
-        (hwnd, width, height) tuples."""
-        user32 = ctypes.windll.user32
-        results = []
-        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
-
-        def callback(hwnd, _lparam):
-            owner_pid = ctypes.c_ulong(0)
-            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner_pid))
-            if owner_pid.value == pid and user32.IsWindowVisible(hwnd):
-                rect = RECT()
-                user32.GetWindowRect(hwnd, ctypes.byref(rect))
-                w, h = rect.right - rect.left, rect.bottom - rect.top
-                if w > 0 and h > 0:
-                    results.append((hwnd, w, h))
-            return True
-
-        user32.EnumWindows(WNDENUMPROC(callback), None)
-        return results
-
-    def _wait_for_login_window(self, pid: int, timeout: float = 25.0) -> int:
-        """Poll the launched process for its windows. Splash screens, update
-        notices, or "already running" prompts that pop up alongside the real
-        login window get closed automatically (they're smaller); once a
-        single window remains stable for a moment, treat it as the login
-        window and return its handle."""
-        import time
-        user32 = ctypes.windll.user32
-        WM_CLOSE = 0x0010
-        deadline = time.time() + timeout
-        stable_hwnd = 0
-        stable_since = 0.0
-
-        while time.time() < deadline:
-            windows = self._enum_process_windows(pid)
-            if windows:
-                windows.sort(key=lambda item: item[1] * item[2], reverse=True)
-                main_hwnd = windows[0][0]
-                for extra_hwnd, _w, _h in windows[1:]:
-                    try:
-                        user32.PostMessageW(extra_hwnd, WM_CLOSE, 0, 0)
-                    except Exception:
-                        pass
-                if main_hwnd == stable_hwnd:
-                    if time.time() - stable_since > 1.0:
-                        return main_hwnd
-                else:
-                    stable_hwnd = main_hwnd
-                    stable_since = time.time()
-            time.sleep(0.4)
-        return stable_hwnd
-
     def minimize(self) -> None:
         if self._window:
             if self._tray_enabled:
@@ -603,6 +394,14 @@ class Api:
                     self._window.minimize()
             else:
                 self._window.minimize()
+
+    def show_window(self) -> None:
+        if self._window:
+            try:
+                self._window.show()
+                self._window.restore()
+            except Exception:
+                pass
 
     def close(self) -> None:
         if self._tray_icon is not None:
@@ -631,18 +430,12 @@ def main() -> None:
         frameless=True,
         easy_drag=False,
         resizable=True,
+        hidden=True,
         background_color="#1b1d21",
     )
     api._window = window
 
     def on_start():
-        # Round corners after the window is up; re-apply on resize.
-        def reapply():
-            try:
-                round_window_corners()
-            except Exception:
-                pass
-
         # Frameless windows drop WS_MINIMIZEBOX, so clicking the taskbar icon
         # no longer toggles minimize/restore. Restore it after the window shows.
         def ensure_minimizebox():
@@ -664,10 +457,7 @@ def main() -> None:
             except Exception:
                 pass
 
-        window.events.shown += reapply
-        window.events.resized += reapply
         window.events.shown += ensure_minimizebox
-        reapply()
         ensure_minimizebox()
         if api._tray_enabled:
             api._set_tray_mode(True)

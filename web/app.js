@@ -29,6 +29,7 @@ let editingAccountIndex = null;
 let wizardMode = false;
 let accountFromServer = false;
 let serverMenuServer = null;
+let serverToDelete = null;
 
 function setWizardMode(enabled) {
   wizardMode = enabled;
@@ -144,10 +145,9 @@ function renderWorkspace() {
     card.addEventListener('click', () => openServerAccounts(server));
     card.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      if (noPath) {
-        serverMenuServer = server;
-        openServerContextMenu(event.clientX, event.clientY);
-      }
+      serverMenuServer = server;
+      document.getElementById('serverAddPathButton').hidden = !noPath;
+      openServerContextMenu(event.clientX, event.clientY);
     });
     card.querySelector('.server-card-alert')?.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -190,7 +190,10 @@ function openServerAccounts(server) {
 function classIcon(className) {
   const file = CLASS_ICONS[className];
   if (!file) return '';
-  return `<img class="class-icon-img" src="class/${file}.webp" alt="" width="26" height="26" loading="lazy">`;
+  const src = currentTheme === 'light'
+    ? `class/dark/${file}.jpg`
+    : `class/${file}.webp`;
+  return `<img class="class-icon-img" src="${src}" alt="" width="26" height="26" loading="lazy">`;
 }
 
 function renderAccounts() {
@@ -448,8 +451,13 @@ document.getElementById('contextDeleteButton').addEventListener('click', async (
     await window.pywebview.api.delete_account(currentServer.name, selectedAccount);
     currentServer.accounts.splice(selectedAccount, 1);
     selectedAccount = null;
-    renderAccounts();
+    const accountsVisible = currentServer && !document.getElementById('accountsView').hidden;
     renderWorkspace();
+    if (accountsVisible) {
+      document.getElementById('serverList').hidden = true;
+      document.getElementById('accountsView').hidden = false;
+    }
+    renderAccounts();
   }
 });
 
@@ -461,6 +469,54 @@ document.getElementById('serverAddPathButton').addEventListener('click', () => {
     openPathModal();
   }
 });
+
+document.getElementById('serverDeleteButton').addEventListener('click', () => {
+  const server = serverMenuServer;
+  hideServerContextMenu();
+  if (!server) return;
+  serverToDelete = server;
+  if (server.accounts && server.accounts.length > 0) {
+    document.getElementById('deleteServerTitle').textContent = 'Удалить сервер?';
+    document.getElementById('deleteServerText').textContent =
+      `«${server.name}» будет удалён из списка. Удалить вместе с ним и его аккаунты?`;
+    document.getElementById('deleteServerModal').hidden = false;
+    return;
+  }
+  performDeleteServer(server, false);
+});
+
+document.getElementById('deleteServerYesButton').addEventListener('click', async () => {
+  document.getElementById('deleteServerModal').hidden = true;
+  const server = serverToDelete;
+  serverToDelete = null;
+  if (server) {
+    await performDeleteServer(server, false);
+  }
+});
+
+document.getElementById('deleteServerNoButton').addEventListener('click', async () => {
+  document.getElementById('deleteServerModal').hidden = true;
+  const server = serverToDelete;
+  serverToDelete = null;
+  if (server) {
+    await performDeleteServer(server, true);
+  }
+});
+
+document.getElementById('deleteServerModal').addEventListener('click', (event) => {
+  if (event.target === event.currentTarget) {
+    document.getElementById('deleteServerModal').hidden = true;
+    serverToDelete = null;
+  }
+});
+
+async function performDeleteServer(server, keepAccounts) {
+  await window.pywebview.api.delete_server(server.name, keepAccounts);
+  const index = servers.findIndex((s) => s.name === server.name);
+  if (index !== -1) servers.splice(index, 1);
+  if (currentServer && currentServer.name === server.name) currentServer = null;
+  renderWorkspace();
+}
 
 document.getElementById('pathBrowseButton').addEventListener('click', async () => {
   const errorEl = document.getElementById('pathError');
@@ -512,7 +568,7 @@ window.addEventListener('pywebviewready', async () => {
   setTheme(state.theme);
   document.getElementById('trayToggle').checked = state.minimize_to_tray;
   const launchMode = document.querySelector(`input[name="launchMode"][value="${state.launch_mode}"]`);
-  if (launchMode) launchMode.checked = true;
+  if (launchMode && !launchMode.disabled) launchMode.checked = true;
   document.getElementById('welcomeVersion').textContent = `v${state.version}`;
   document.getElementById('workspaceVersion').textContent = `v${state.version}`;
   const data = await window.pywebview.api.get_data();
@@ -522,16 +578,33 @@ window.addEventListener('pywebviewready', async () => {
   fillClasses();
   renderWorkspace();
   showScreen(state.accepted ? 'workspace' : 'welcome');
+  window.pywebview.api.show_window();
+  setTimeout(() => {
+    if (document.activeElement && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
+  }, 200);
 });
 
 themeButton.addEventListener('click', async () => {
   const next = currentTheme === 'dark' ? 'light' : 'dark';
   setTheme(next);
   await window.pywebview.api.set_theme(next);
+  if (!document.getElementById('accountsView').hidden) {
+    renderAccounts();
+  }
 });
 
 document.getElementById('minimizeButton').addEventListener('click', () => window.pywebview.api.minimize());
 document.getElementById('closeButton').addEventListener('click', () => window.pywebview.api.close());
+
+document.querySelectorAll('.launch-hint').forEach((hint) => {
+  hint.addEventListener('mousedown', (event) => event.preventDefault());
+  hint.addEventListener('click', (event) => {
+    event.preventDefault();
+    hint.blur();
+  });
+});
 
 const settingsModal = document.getElementById('settingsModal');
 document.getElementById('settingsButton').addEventListener('click', () => {
@@ -544,7 +617,11 @@ settingsModal.addEventListener('click', (event) => {
   if (event.target === settingsModal) settingsModal.hidden = true;
 });
 window.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') settingsModal.hidden = true;
+  if (event.key === 'Escape') {
+    settingsModal.hidden = true;
+    document.getElementById('deleteServerModal').hidden = true;
+    serverToDelete = null;
+  }
 });
 document.getElementById('trayToggle').addEventListener('change', async (event) => {
   await window.pywebview.api.set_minimize_to_tray(event.target.checked);
