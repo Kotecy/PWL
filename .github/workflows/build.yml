@@ -1,4 +1,4 @@
-name: Build Windows installer
+name: Build
 
 on:
   push:
@@ -44,7 +44,7 @@ jobs:
         run: node tools/build-assets.mjs
 
   build:
-    name: Installer
+    name: Executable
     needs: check
     runs-on: windows-latest
     permissions:
@@ -71,27 +71,37 @@ jobs:
             throw "Тег ${{ github.ref_name }} не совпадает с версией $version в tauri.conf.json"
           }
 
+      - name: Cache Tauri CLI
+        id: tauri-cli
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-tauri.exe
+          key: tauri-cli-2-${{ runner.os }}
+
       - name: Install Tauri CLI
+        if: steps.tauri-cli.outputs.cache-hit != 'true'
         shell: pwsh
         run: cargo install tauri-cli --version "^2" --locked
 
-      - name: Build NSIS installer
+      # Без установщика: приложение — один самодостаточный exe (интерфейс вшит внутрь).
+      - name: Build executable
         working-directory: src-tauri
-        run: cargo tauri build --ci
+        run: cargo tauri build --no-bundle --ci
 
-      - name: Report size
+      - name: Name the executable
         shell: pwsh
         run: |
-          Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe |
-            Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,2)}}
-          Get-Item src-tauri/target/release/pwl.exe |
-            Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,2)}}
+          $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item src-tauri/target/release/pwl.exe "dist/PWL_${version}_x64.exe"
+          Get-ChildItem dist | Select-Object Name, @{n='MB';e={[math]::Round($_.Length/1MB,2)}}
+          (Get-FileHash dist/*.exe -Algorithm SHA256).Hash
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: PWL-windows
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          path: dist/*.exe
           if-no-files-found: error
 
       - name: Publish release
@@ -100,4 +110,4 @@ jobs:
         with:
           name: PWL ${{ github.ref_name }}
           body_path: RELEASE_NOTES.md
-          files: src-tauri/target/release/bundle/nsis/*.exe
+          files: dist/*.exe
