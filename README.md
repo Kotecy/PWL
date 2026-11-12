@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128.png" alt="PWL" width="96">
+<img src="docs/logo.png" alt="PWL" width="120">
 
 # PWL by Kotecy
 
@@ -31,10 +31,10 @@ PWL хранит ваши серверы и аккаунты в одном ме�
 - **Трей.** По настройке кнопки «Свернуть» и «Закрыть» прячут окно в системный трей.
 - **Перенос данных.** Библиотека версии 0.9.x подхватывается автоматически, исходные файлы остаются нетронутыми.
 
-<div align="center">
-<img src="docs/screenshots/servers-dark.png" alt="Список серверов" width="420">
-<img src="docs/screenshots/accounts-light.png" alt="Список аккаунтов, светлая тема" width="420">
-</div>
+<p align="center">
+  <img src="docs/screenshots/servers-dark.png" alt="Список серверов" width="49%">
+  <img src="docs/screenshots/accounts-light.png" alt="Список аккаунтов, светлая тема" width="49%">
+</p>
 
 ## Установка
 
