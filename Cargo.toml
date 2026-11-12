@@ -1,0 +1,12 @@
+[workspace]
+resolver = "2"
+members = ["crates/pwl-core"]
+# Tauri-приложение собирается своим профилем (см. src-tauri/Cargo.toml):
+# его зависимости требуют системных библиотек и не нужны для тестов ядра.
+exclude = ["src-tauri"]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true

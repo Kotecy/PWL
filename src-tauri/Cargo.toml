@@ -1,0 +1,34 @@
+[package]
+name = "pwl"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+description = "PWL — менеджер аккаунтов Perfect World"
+default-run = "pwl"
+
+# Отдельный workspace: зависимости Tauri требуют системных библиотек,
+# а ядро (crates/pwl-core) должно собираться и тестироваться где угодно.
+[workspace]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+pwl-core = { path = "../crates/pwl-core" }
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-single-instance = "2"
+rfd = { version = "0.15", default-features = false }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true
+incremental = false
+
+[[bin]]
+name = "pwl"
+path = "src/main.rs"

@@ -1,0 +1,16 @@
+{
+  "name": "pwl-tools",
+  "private": true,
+  "type": "module",
+  "description": "Dev-утилиты PWL: генератор спрайтов и сервер предпросмотра",
+  "scripts": {
+    "sprites": "node build-sprites.mjs",
+    "dev": "node dev-server.mjs",
+    "smoke": "node smoke-ui.mjs",
+    "assets": "node build-assets.mjs"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.15",
+    "sharp": "^0.33.5"
+  }
+}

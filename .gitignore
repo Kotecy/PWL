@@ -1,6 +1,11 @@
-__pycache__/
-*.pyc
-build/
-dist/
-*.spec
-.venv/
+# Rust
+target/
+src-tauri/target/
+src-tauri/gen/
+
+# Node (dev-утилиты в tools/)
+node_modules/
+
+# Прочее
+.DS_Store
+Thumbs.db

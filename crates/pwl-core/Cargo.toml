@@ -1,0 +1,12 @@
+[package]
+name = "pwl-core"
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+description = "PWL domain core: accounts, servers, storage, migration, launch planning. No GUI, no platform deps."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]

@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PWL by Kotecy</title>
+<link rel="stylesheet" href="styles/base.css">
+<link rel="stylesheet" href="styles/components.css">
+<link rel="stylesheet" href="styles/screens.css">
+</head>
+<body>
+<!-- Один SVG-спрайт на всё приложение: иконки не дублируются в разметке строк. -->
+<svg class="svg-defs" aria-hidden="true" focusable="false"><defs>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.2v2.3M12 19.5v2.3M2.2 12h2.3M19.5 12h2.3M5.1 5.1l1.6 1.6M17.3 17.3l1.6 1.6M18.9 5.1l-1.6 1.6M6.7 17.3l-1.6 1.6"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.4 14.6A8.6 8.6 0 0 1 9.4 3.6a8.6 8.6 0 1 0 11 11Z"/><path d="M17 3.2v3.6M15.2 5h3.6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><path d="M10.27 4.80L10.49 1.91A10.2 10.2 0 0 1 13.51 1.91L13.73 4.80A7.4 7.4 0 0 1 15.87 5.69L18.07 3.80A10.2 10.2 0 0 1 20.20 5.93L18.31 8.13A7.4 7.4 0 0 1 19.20 10.27L22.09 10.49A10.2 10.2 0 0 1 22.09 13.51L19.20 13.73A7.4 7.4 0 0 1 18.31 15.87L20.20 18.07A10.2 10.2 0 0 1 18.07 20.20L15.87 18.31A7.4 7.4 0 0 1 13.73 19.20L13.51 22.09A10.2 10.2 0 0 1 10.49 22.09L10.27 19.20A7.4 7.4 0 0 1 8.13 18.31L5.93 20.20A10.2 10.2 0 0 1 3.80 18.07L5.69 15.87A7.4 7.4 0 0 1 4.80 13.73L1.91 13.51A10.2 10.2 0 0 1 1.91 10.49L4.80 10.27A7.4 7.4 0 0 1 5.69 8.13L3.80 5.93A10.2 10.2 0 0 1 5.93 3.80L8.13 5.69A7.4 7.4 0 0 1 10.27 4.80Z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-min" viewBox="0 0 16 16"><path d="M3 8.5h10"/></symbol>
+  <symbol id="i-max" viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-left" viewBox="0 0 16 16"><path d="M10.5 3 5.5 8l5 5"/></symbol>
+  <symbol id="i-right" viewBox="0 0 16 16"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 16 16"><path d="M5 4.5h6M5 8h6M5 11.5h6"/></symbol>
+  <symbol id="i-search" viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.2"/><path d="m10.2 10.2 3.3 3.3"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9L17.5 7"/><path d="M10 11v5M14 11v5"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 16 16"><path d="M11.2 2.8 13.2 4.8 5.6 12.4 2.8 13.2l.8-2.8Z"/></symbol>
+  <symbol id="i-play" viewBox="0 0 16 16"><path d="M5 3.5 12 8l-7 4.5Z" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 16 16"><path d="M2 4.5h4l1.2 1.5H14v7H2Z"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 16 16"><path d="M8 2.5 14.5 13.5h-13Z"/><path d="M8 6.5v3.2M8 11.6v.4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="m3.5 8.5 3 3 6-7"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3.5 4.5 7v10L12 20.5 19.5 17V7Z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-tray" viewBox="0 0 24 24"><path d="M3.5 14.5h5l1.5 2.5h4l1.5-2.5h5"/><path d="M5.5 5.5h13l2 9v4h-17v-4Z"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 8-8 2 2-2 2 2 2-2 2-2-2-2 2"/></symbol>
+  <symbol id="g0" viewBox="0 0 24 24"><path d="M6 18.5h11.5a3.4 3.4 0 0 0 .6-6.7 5 5 0 0 0-9.4-1.1A4 4 0 0 0 6 18.5Z"/><path d="M9.6 14.2a1.7 1.7 0 0 1 3.3.6 1.6 1.6 0 0 1-1.7 1.6"/><path d="M3 20.5h4.5M16.5 20.5H21"/></symbol>
+  <symbol id="g1" viewBox="0 0 24 24"><path d="M12 4.5c2.2 2.2 3 4.7 3 7.2 0 2.6-1.3 4.5-3 5.8-1.7-1.3-3-3.2-3-5.8 0-2.5.8-5 3-7.2Z"/><path d="M8.2 9.3c-2.7.3-4.4 2.2-4.7 5.2.4 2.2 2.2 3.5 4.7 3.5.9 0 1.8-.2 2.6-.6M15.8 9.3c2.7.3 4.4 2.2 4.7 5.2-.4 2.2-2.2 3.5-4.7 3.5-.9 0-1.8-.2-2.6-.6"/><path d="M5 20.5h14"/></symbol>
+  <symbol id="g2" viewBox="0 0 24 24"><path d="M12 2.4v2.2"/><path d="M7.6 8.4C9.6 8.2 11 6.9 12 4.6c1 2.3 2.4 3.6 4.4 3.8Z"/><path d="M6 13c2.4-.3 4.2-1.7 6-4 1.8 2.3 3.6 3.7 6 4Z"/><path d="M4.5 18c3-.4 5.5-2.3 7.5-5.2 2 2.9 4.5 4.8 7.5 5.2Z"/><path d="M8 18v2.8M16 18v2.8M6 20.8h12"/></symbol>
+  <symbol id="g3" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a4.25 4.25 0 0 1 0 8.5 4.25 4.25 0 0 0 0 8.5"/><circle cx="12" cy="7.75" r=".9" fill="currentColor" stroke="none"/><circle cx="12" cy="16.25" r=".9"/></symbol>
+  <symbol id="g4" viewBox="0 0 24 24"><path d="M8.6 3.5h6.8l5.1 5.1v6.8l-5.1 5.1H8.6l-5.1-5.1V8.6Z"/><circle cx="12" cy="12" r="3"/><path d="M12 6.8v2.2M12 15v2.2M6.8 12H9M15 12h2.2"/></symbol>
+  <symbol id="g5" viewBox="0 0 24 24"><path d="M12 2.8v2.6"/><circle cx="12" cy="10.8" r="5.4"/><circle cx="12" cy="10.8" r="1.8"/><path d="M12 16.2v4M10 19l2 2.4 2-2.4"/></symbol>
+  <symbol id="g6" viewBox="0 0 24 24"><path d="M12 20.5 3.8 8.5a11 11 0 0 1 16.4 0Z"/><path d="M12 20.5 7.6 6.6M12 20.5V5.3M12 20.5l4.4-13.9"/><path d="M6.6 12.6a7.5 7.5 0 0 1 10.8 0"/></symbol>
+  <symbol id="g7" viewBox="0 0 24 24"><path d="M12 7c-4.5-1.8-8 1.6-8 6.2 0 3.7 3.4 6.8 8 7.8 4.6-1 8-4.1 8-7.8C20 8.6 16.5 5.2 12 7Z"/><path d="M12 7c0-1.7 1.4-2.8 3.4-2.9-.1 1.8-1.4 2.9-3.4 2.9Z"/><path d="M12 9.5c-1.2 2.7-1.2 6 0 8.5"/></symbol>
+  <symbol id="g8" viewBox="0 0 24 24"><path d="M10.3 3.4h3.4v1.8c0 1.4 2.6 2.4 2.6 4.6 0 1-.5 1.7-1.2 2.2 2.6.9 4.4 2.9 4.4 5.2 0 2.7-3.4 4.4-7.5 4.4s-7.5-1.7-7.5-4.4c0-2.3 1.8-4.3 4.4-5.2-.7-.5-1.2-1.2-1.2-2.2 0-2.2 2.6-3.2 2.6-4.6Z"/><path d="M8 17c0-1 .6-1.9 1.4-2.4"/></symbol>
+  <symbol id="g9" viewBox="0 0 24 24"><path d="M12 2.8v2.4"/><path d="M6.5 17.5c1.2-1.4 1.8-3.4 1.8-6.2 0-3.5 1.6-6.1 3.7-6.1s3.7 2.6 3.7 6.1c0 2.8.6 4.8 1.8 6.2Z"/><path d="M5.5 17.5h13"/><circle cx="12" cy="19.9" r="1"/></symbol>
+  <symbol id="g10" viewBox="0 0 24 24"><path d="M3.5 12c3-4.6 8.2-5.6 12-2.8L20.5 7v10l-5-2.2C11.7 17.6 6.5 16.6 3.5 12Z"/><circle cx="8" cy="11.2" r=".8" fill="currentColor" stroke="none"/><path d="M10.8 9.6c.9.8 1.2 1.8 1 3M10.5 14.9c1 .9 2.1 1.5 3.3 1.7"/></symbol>
+  <symbol id="g11" viewBox="0 0 24 24"><path d="M4 18.5C4.5 11 9.5 6 20.5 4.5c-.5 6-6.5 11.5-16.5 14Z"/><path d="M5.5 18.5c4.5.2 8.5-1.5 11.5-5"/><path d="M4 18.5C8 15 11.5 10.5 14.5 6.5"/><path d="M7.5 20.5c3.5-.2 6.5-1.2 9-3.5"/></symbol>
+  <symbol id="g12" viewBox="0 0 24 24"><path d="M12 2.8v1.7M9.5 4.5h5"/><path d="M7 7h10c2 1.7 3 3.6 3 5s-1 3.3-3 5H7c-2-1.7-3-3.6-3-5s1-3.3 3-5Z"/><path d="M12 7v10M9 7.2c-1 1.3-1.4 3.2-1.4 4.8s.4 3.5 1.4 4.8M15 7.2c1 1.3 1.4 3.2 1.4 4.8s-.4 3.5-1.4 4.8"/><path d="M9.5 17h5M12 17v2.5M10.7 21l1.3-1.5 1.3 1.5"/></symbol>
+  <symbol id="g13" viewBox="0 0 24 24"><path d="M3 17.5 8.5 8l3 5 2.5-3.5 7 8Z"/><circle cx="17.5" cy="5.8" r="1.8"/><path d="M3.5 20.5c1.2-.9 2.4-.9 3.5 0s2.3.9 3.5 0 2.3-.9 3.5 0 2.3.9 3.5 0"/></symbol>
+  <symbol id="g14" viewBox="0 0 24 24"><path d="M12 12.5c-2.6 0-4.8 2.4-4.8 4.6 0 1.8 1.4 2.6 2.8 2.6.8 0 1.4-.3 2-.3s1.2.3 2 .3c1.4 0 2.8-.8 2.8-2.6 0-2.2-2.2-4.6-4.8-4.6Z"/><ellipse cx="6.2" cy="10.4" rx="1.5" ry="2"/><ellipse cx="9.6" cy="6.4" rx="1.6" ry="2.2"/><ellipse cx="14.4" cy="6.4" rx="1.6" ry="2.2"/><ellipse cx="17.8" cy="10.4" rx="1.5" ry="2"/></symbol>
+  <symbol id="g15" viewBox="0 0 24 24"><path d="M3 20.5a9 9 0 0 1 18 0M6 20.5a6 6 0 0 1 12 0M9 20.5a3 3 0 0 1 6 0M3 20.5h18"/><path d="M2.5 6.5c1.5-1 3-1 4.5 0s3 1 4.5 0 3-1 4.5 0 3 1 4.5 0"/></symbol>
+  <symbol id="g16" viewBox="0 0 24 24"><path d="M3.5 11.5h17c-.6 3.8-2.2 6-4.4 6.8H7.9C5.7 17.5 4.1 15.3 3.5 11.5Z"/><path d="M7.5 11.5c.4-3.5 2.2-5.2 4.5-5.2s4.1 1.7 4.5 5.2"/><path d="M9.5 11.5c.3-1.6 1.2-2.4 2.5-2.4s2.2.8 2.5 2.4"/></symbol>
+  <symbol id="g17" viewBox="0 0 24 24"><path d="M7 3.5h10v17H7Z"/><path d="M7 6.8h10M12 8.6v10.6M9.6 10.8h4.8M9.8 14.5h4.4M10.6 17.5l1.4-1 1.4 1"/></symbol>
+  <symbol id="g18" viewBox="0 0 24 24"><path d="M20.5 3.5 20 7.2 10.7 16.5 7.5 13.3 16.8 4Z"/><path d="M5.6 11.8l6.6 6.6M9 15.1 5 19.1"/><path d="M4.2 19.8c-.6.8-1 1.5-1.2 2.2M4.2 19.8c-.9.3-1.6.7-2.2 1.2"/></symbol>
+  <symbol id="g19" viewBox="0 0 24 24"><path d="M4.5 16 9 10.5l4.5 2.5 6-7M13.5 13l3.5 5.5"/><circle cx="4.5" cy="16" r="1.3"/><circle cx="9" cy="10.5" r="1.3"/><circle cx="13.5" cy="13" r="1.3"/><circle cx="19.5" cy="6" r="1.6"/><circle cx="17" cy="18.5" r="1.3"/></symbol>
+</defs></svg>
+
+<div class="app">
+  <header class="titlebar">
+    <div class="titlebar-drag" data-tauri-drag-region>
+      <img class="brand-icon" src="assets/app-32.png" alt="" width="16" height="16" draggable="false">
+      <span class="brand-name" data-tauri-drag-region>PWL by Kotecy</span>
+    </div>
+    <div class="titlebar-actions">
+      <button id="btn-theme" class="tb-btn" type="button" title="Тема (Ctrl+T)"><svg class="ic"><use href="#i-sun"/></svg></button>
+      <button id="btn-settings" class="tb-btn" type="button" title="Настройки"><svg class="ic"><use href="#i-gear"/></svg></button>
+      <button id="btn-min" class="tb-btn" type="button" title="Свернуть"><svg class="ic"><use href="#i-min"/></svg></button>
+      <button id="btn-max" class="tb-btn" type="button" title="Развернуть"><svg class="ic"><use href="#i-max"/></svg></button>
+      <button id="btn-close" class="tb-btn tb-close" type="button" title="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- Приветствие -->
+    <section id="screen-welcome" class="screen center" hidden>
+      <div class="glow" aria-hidden="true"></div>
+      <div class="card welcome">
+        <span class="pill">PERFECT WORLD</span>
+        <h1>Добро пожаловать в PWL</h1>
+        <div class="rule"></div>
+        <p class="lead">Добавьте первый сервер и аккаунт —<br>дальше вход в игру в один клик</p>
+        <button id="btn-accept" class="btn primary lg" type="button">Начать</button>
+      </div>
+    </section>
+
+    <!-- Серверы -->
+    <section id="screen-servers" class="screen" hidden>
+      <div class="pane">
+        <div class="pane-head">
+          <h2 class="pane-title">Серверы</h2>
+          <div class="pane-tools">
+            <label class="search">
+              <svg class="ic"><use href="#i-search"/></svg>
+              <input id="server-search" type="search" placeholder="Поиск сервера" autocomplete="off" spellcheck="false">
+            </label>
+            <button id="btn-add-server" class="btn ghost" type="button"><svg class="ic"><use href="#i-plus"/></svg>Добавить</button>
+          </div>
+        </div>
+        <div id="server-scroll" class="scroll">
+          <div id="server-grid" class="server-grid"></div>
+          <div id="server-empty" class="empty" hidden>
+            <span class="empty-icon"><svg class="ic"><use href="#i-plus"/></svg></span>
+            <h3>Здесь пока пусто</h3>
+            <p>Добавьте первый сервер, чтобы начать</p>
+            <button id="btn-add-server-empty" class="btn primary" type="button">Добавить сервер</button>
+          </div>
+        </div>
+        <div id="server-pager" class="pager" hidden></div>
+      </div>
+    </section>
+
+    <!-- Аккаунты -->
+    <section id="screen-accounts" class="screen" hidden>
+      <div class="pane">
+        <div class="pane-head">
+          <button id="btn-back" class="btn back" type="button"><svg class="ic"><use href="#i-left"/></svg>Серверы</button>
+          <h2 id="accounts-title" class="pane-title"></h2>
+          <span id="accounts-count" class="counter"></span>
+          <div class="pane-tools">
+            <label class="search">
+              <svg class="ic"><use href="#i-search"/></svg>
+              <input id="account-search" type="search" placeholder="Ник, логин или комментарий" autocomplete="off" spellcheck="false">
+            </label>
+          </div>
+        </div>
+        <div class="table">
+          <div class="thead">
+            <span class="col-grip"></span>
+            <span class="col-class">Класс</span>
+            <span class="col-nick">Ник</span>
+            <span class="col-login">Логин</span>
+            <span class="col-note">Комментарий</span>
+            <span class="col-act"></span>
+          </div>
+          <div id="vlist" class="vlist" tabindex="0">
+            <div id="vlist-sizer" class="vlist-sizer"></div>
+            <div id="vlist-rows" class="vlist-rows"></div>
+            <div id="accounts-empty" class="empty small" hidden>
+              <p>Аккаунтов пока нет</p>
+              <button id="btn-add-account-empty" class="btn primary" type="button">Добавить аккаунт</button>
+            </div>
+          </div>
+        </div>
+        <div class="pane-foot">
+          <span class="hint"><kbd>Enter</kbd> войти · <kbd>↑↓</kbd> выбор · <kbd>Del</kbd> удалить · перетаскивание меняет порядок</span>
+          <div class="foot-actions">
+            <button id="btn-add-account" class="btn ghost" type="button">Добавить аккаунт</button>
+            <button id="btn-enter" class="btn primary" type="button" disabled><svg class="ic"><use href="#i-play"/></svg>Войти</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Форма сервера -->
+    <section id="screen-server-form" class="screen center" hidden>
+      <div class="glow" aria-hidden="true"></div>
+      <div class="card form">
+        <span id="server-form-kicker" class="kicker" hidden>Шаг 1 из 2</span>
+        <h1 id="server-form-title">Добавление сервера</h1>
+        <form id="form-server" novalidate>
+          <label class="field">
+            <span class="label">Название сервера</span>
+            <input id="f-server-name" class="input" type="text" autocomplete="off" spellcheck="false" maxlength="60">
+          </label>
+          <div class="field">
+            <span class="label">Клиент игры</span>
+            <div class="pick-row">
+              <button id="btn-pick-server" class="btn ghost" type="button"><svg class="ic"><use href="#i-folder"/></svg>Выбрать elementclient.exe</button>
+              <span id="server-path" class="pick-value" hidden></span>
+            </div>
+            <span class="field-note">Можно добавить позже — путь нужен только для входа в игру</span>
+          </div>
+          <p id="server-form-error" class="form-error" hidden></p>
+          <div class="form-actions">
+            <button id="btn-server-cancel" class="btn quiet" type="button">Отмена</button>
+            <button class="btn primary" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- Форма аккаунта -->
+    <section id="screen-account-form" class="screen center" hidden>
+      <div class="glow" aria-hidden="true"></div>
+      <div class="card form">
+        <span id="account-form-kicker" class="kicker" hidden>Шаг 2 из 2</span>
+        <h1 id="account-form-title">Добавление аккаунта</h1>
+        <form id="form-account" novalidate>
+          <div class="row2">
+            <label class="field">
+              <span class="label">Логин</span>
+              <input id="f-login" class="input" type="text" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="field">
+              <span class="label">Пароль</span>
+              <input id="f-password" class="input" type="password" autocomplete="new-password">
+            </label>
+          </div>
+          <label class="field">
+            <span class="label">Ник персонажа</span>
+            <div class="nick-row">
+              <input id="f-nick" class="input" type="text" autocomplete="off" spellcheck="false">
+              <label class="check"><input id="f-auto" type="checkbox"><span>Автовход на персонажа</span></label>
+            </div>
+          </label>
+          <div class="row2">
+            <label class="field">
+              <span class="label">Раса</span>
+              <select id="f-race" class="input"></select>
+            </label>
+            <label class="field">
+              <span class="label">Класс</span>
+              <select id="f-class" class="input"></select>
+            </label>
+          </div>
+          <label class="field">
+            <span class="label">Комментарий</span>
+            <input id="f-comment" class="input" type="text" autocomplete="off" maxlength="120" placeholder="Необязательно">
+          </label>
+          <p id="account-form-error" class="form-error" hidden></p>
+          <div class="form-actions">
+            <button id="btn-account-cancel" class="btn quiet" type="button">Отмена</button>
+            <button class="btn primary" type="submit">Сохранить</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="statusbar">
+    <span id="status-save" class="save-state" data-state="idle">Данные загружены</span>
+    <span class="status-spacer"></span>
+    <span id="status-secure" class="status-badge" hidden><svg class="ic"><use href="#i-shield"/></svg>Пароли зашифрованы</span>
+    <span id="status-version" class="version"></span>
+  </footer>
+</div>
+
+<!-- Контекстное меню -->
+<div id="menu" class="menu" hidden role="menu"></div>
+
+<!-- Настройки -->
+<div id="modal-settings" class="overlay" hidden>
+  <div class="card modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <button class="modal-x" type="button" data-close><svg class="ic"><use href="#i-x"/></svg></button>
+    <h2 id="settings-title">Настройки</h2>
+    <div class="options">
+      <label class="option">
+        <span class="option-icon"><svg class="ic"><use href="#i-tray"/></svg></span>
+        <span class="option-text"><b>Сворачивать в трей</b><small>Кнопка «Свернуть» прячет окно в системный трей</small></span>
+        <span class="switch"><input id="opt-tray" type="checkbox" role="switch"><span class="track"></span></span>
+      </label>
+      <label class="option">
+        <span class="option-icon"><svg class="ic"><use href="#i-trash"/></svg></span>
+        <span class="option-text"><b>Подтверждать удаление</b><small>Спрашивать перед удалением аккаунта</small></span>
+        <span class="switch"><input id="opt-confirm" type="checkbox" role="switch"><span class="track"></span></span>
+      </label>
+      <div class="option static">
+        <span class="option-icon"><svg class="ic"><use href="#i-key"/></svg></span>
+        <span class="option-text"><b>Хранение паролей</b><small id="opt-secrets">—</small></span>
+      </div>
+      <button id="btn-open-datadir" class="option link" type="button" title="Открыть папку в проводнике">
+        <span class="option-icon"><svg class="ic"><use href="#i-folder"/></svg></span>
+        <span class="option-text"><b>Папка данных</b><small id="opt-datadir" class="mono">—</small></span>
+        <svg class="ic option-go"><use href="#i-right"/></svg>
+      </button>
+    </div>
+    <p class="credits">PWL — фанатский инструмент для удобной работы с аккаунтами. Спасибо всем игрокам Perfect World за годы, проведённые вместе в этом мире. Сделано с любовью от Kotecy.</p>
+  </div>
+</div>
+
+<!-- Путь к клиенту -->
+<div id="modal-path" class="overlay" hidden>
+  <div class="card modal" role="dialog" aria-modal="true">
+    <h2 id="path-title">Нужен Elementclient</h2>
+    <p class="modal-text">Укажите путь к клиенту, чтобы войти на этот сервер.</p>
+    <div class="pick-row">
+      <button id="btn-pick-modal" class="btn ghost" type="button"><svg class="ic"><use href="#i-folder"/></svg>Выбрать elementclient.exe</button>
+      <span id="modal-path-value" class="pick-value" hidden></span>
+    </div>
+    <p id="path-error" class="form-error" hidden></p>
+    <div class="form-actions">
+      <button class="btn quiet" type="button" data-close>Отмена</button>
+      <button id="btn-path-save" class="btn primary" type="button" disabled>Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Подтверждение -->
+<div id="modal-confirm" class="overlay" hidden>
+  <div class="card modal confirm" role="dialog" aria-modal="true">
+    <span class="confirm-icon"><svg class="ic"><use href="#i-trash"/></svg></span>
+    <h2 id="confirm-title">Удалить?</h2>
+    <p id="confirm-text" class="modal-text"></p>
+    <div id="confirm-actions" class="form-actions center"></div>
+  </div>
+</div>
+
+<div id="toasts" class="toasts" aria-live="polite"></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
